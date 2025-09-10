@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Polynomial Root Art Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #1a1a1a; color: #e0e0e0; margin: 0; padding: 1em; display: flex; gap: 1em; }
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; }
+        .controls-column { min-width: 350px; max-width: 350px; background-color: #2a2a2a; padding: 1em; border-radius: 8px; height: fit-content; }
+        .control-group { margin-bottom: 1.5em; }
+        label, input, button, textarea { display: block; width: 95%; margin-bottom: 0.8em; }
+        input, textarea { padding: 0.5em; border-radius: 4px; border: 1px solid #444; background-color: #333; color: #e0e0e0; }
+        button { padding: 0.8em; border: none; border-radius: 4px; background-color: #007bff; color: white; cursor: pointer; }
+        #p5-canvas-container { min-height: 80vh; min-width: 80vh; display: flex; justify-content: center; align-items: center; border: 2px dashed #444; border-radius: 8px; background-color: #000; }
+        #status { margin-top: 1em; }
+        .action-buttons { display: flex; justify-content: center; gap: 1em; margin-top: 1em; width: 80vh; }
+        .action-buttons button { width: 48%; }
+        #right-controls .control-group {
+            border: 1px solid #444;
+            padding: 1em;
+            border-radius: 6px;
+            background-color: #333;
+        }
+        .form-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1em;
+        }
+        .form-row label {
+            margin-bottom: 0;
+            flex-basis: 45%;
+        }
+        .form-row select, .form-row input {
+            margin-bottom: 0;
+            flex-basis: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls-column" id="left-controls">
+        <div class="control-group">
+            <h3>1. Define Polynomial Structure</h3>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <label for="degree">Degree:</label>
+                <input type="number" id="degree" value="24" style="width: 60px;">
+                <button id="set-degree-btn" type="button">Set</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <input type="checkbox" id="hide-zeros-checkbox" style="width: auto;" checked>
+                <label for="hide-zeros-checkbox" style="margin: 0;">Hide Zero Coefficients</label>
+            </div>
+            <div id="coefficients-container"></div>
+        </div>
+        <div class="control-group" id="domain-controls">
+            <h3>2. Define Sampling Domains</h3>
+        </div>
+        <div class="control-group">
+            <h3>3. Define Parameters</h3>
+            <div id="params-container"></div>
+            <button id="add-param-btn" type="button">Add Parameter</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div id="p5-canvas-container"></div>
+        <div class="action-buttons">
+            <button id="generate-btn">Generate Roots</button>
+        </div>
+        <div id="status">Ready</div>
+    </div>
+    <div class="controls-column" id="right-controls">
+        <div class="control-group">
+            <h3>4. Computation Settings</h3>
+            <div class="form-row">
+                <label for="n_pairs">Samples:</label>
+                <input type="number" id="n_pairs" value="20000" min="1000">
+            </div>
+            <div class="form-row">
+                <label for="seed">Seed:</label>
+                <input type="number" id="seed" value="123">
+            </div>
+            <div class="form-row">
+                <label for="grid_resolution">Grid Resolution:</label>
+                <select id="grid_resolution">
+                    <option value="1080" selected>1080x1080 (HD)</option>
+                    <option value="2048">2048x2048 (2K)</option>
+                    <option value="4096">4096x4096 (4K)</option>
+                </select>
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background-color: #333; border-radius: 4px; border-left: 3px solid #007bff;">
+                <h4 style="margin: 0 0 10px 0; color: #007bff;">Performance Settings</h4>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <input type="checkbox" id="use_parallel" checked style="width: auto;">
+                    <label for="use_parallel" style="margin: 0;">Enable Parallel Processing</label>
+                </div>
+                <div id="parallel-controls">
+                    <label for="max_workers">Number of CPU Cores:</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" id="max_workers" min="1" style="flex: 1;">
+                        <span id="cores-display">...</span>
+                    </div>
+                    <div style="font-size: 0.8em; color: #aaa; margin-top: 5px;">
+                        Available: <span id="max-cores-display">Loading...</span> cores
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>5. Visualization Settings</h3>
+            <div class="form-row">
+                <label for="color_palette">Color Palette:</label>
+                <select id="color_palette">
+                    <option value="inferno" selected>Inferno</option>
+                    <option value="plasma">Plasma</option>
+                    <option value="viridis">Viridis</option>
+                    <option value="cool_nebula">Cool Nebula</option>
+                    <option value="fire_gradient">Fire Gradient</option>
+                    <option value="ocean_depths">Ocean Depths</option>
+                    <option value="emerald_dream">Emerald Dream</option>
+                    <option value="sunset_glow">Sunset Glow</option>
+                </select>
+            </div>
+            <div id="visualization-controls" style="display: none;">
+                <div class="form-row">
+                    <label for="render_style">Render Style:</label>
+                    <select id="render_style">
+                        <option value="pure_pixel">Pure Pixel</option>
+                        <option value="smooth_glow" selected>Smooth Glow</option>
+                        <option value="smoky_bloom">Smoky Bloom</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="contrast_boost">Contrast Boost:</label>
+                    <select id="contrast_boost">
+                        <option value="1.0">Normal</option>
+                        <option value="2.0" selected>High</option>
+                        <option value="3.0">Extreme</option>
+                        <option value="5.0">Maximum</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="black_point">Black Point:</label>
+                    <select id="black_point">
+                        <option value="0.0">None</option>
+                        <option value="0.1">Light</option>
+                        <option value="0.2">Medium</option>
+                        <option value="0.3" selected>High</option>
+                        <option value="0.5">Extreme</option>
+                        <option value="0.7">Maximum</option>
+                    </select>
+                </div>
+                <button id="apply-effects-btn">Apply Visual Effects</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>6. Output Settings</h3>
+            <div class="form-row">
+                <label for="signature-text">Signature/Watermark:</label>
+                <input type="text" id="signature-text" placeholder="e.g., Your Name/Signature">
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                <input type="checkbox" id="add-signature-checkbox" style="width: auto;">
+                <label for="add-signature-checkbox" style="margin: 0;">Add signature to image</label>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                <input type="checkbox" id="add-equation-checkbox" style="width: auto;">
+                <label for="add-equation-checkbox" style="margin: 0;">Add equation info to image</label>
+            </div>
+            <button id="download-btn" style="margin-top: 15px;">Download Image</button>
+        </div>
+    </div>
+    <script>
+        // --- UI Control Logic ---
+        const degreeInput = document.getElementById('degree');
+        const setDegreeBtn = document.getElementById('set-degree-btn');
+        const coeffsContainer = document.getElementById('coefficients-container');
+        const paramsContainer = document.getElementById('params-container');
+        const addParamBtn = document.getElementById('add-param-btn');
+        const generateBtn = document.getElementById('generate-btn');
+        const applyEffectsBtn = document.getElementById('apply-effects-btn');
+        const visualizationControls = document.getElementById('visualization-controls');
+        const domainControlsContainer = document.getElementById('domain-controls');
+        const useParallelCheckbox = document.getElementById('use_parallel');
+        const maxWorkersSlider = document.getElementById('max_workers');
+        const coresDisplay = document.getElementById('cores-display');
+        const maxCoresDisplay = document.getElementById('max-cores-display');
+        const parallelControls = document.getElementById('parallel-controls');
+        const hideZerosCheckbox = document.getElementById('hide-zeros-checkbox');
+        const addSignatureCheckbox = document.getElementById('add-signature-checkbox');
+        const addEquationCheckbox = document.getElementById('add-equation-checkbox');
+
+        // --- Domain Control Logic ---
+        function createDomainUI(varName) {
+            const container = document.createElement('div');
+            container.className = 'domain-spec';
+            container.style.border = '1px solid #444';
+            container.style.padding = '10px';
+            container.style.borderRadius = '4px';
+            container.style.marginBottom = '1em';
+            container.dataset.varName = varName;
+
+            container.innerHTML = `
+                <label style="font-weight: bold; color: #00aaff;">Domain for ${varName}:</label>
+                <select class="domain-type-select">
+                    <option value="unit_circle">Unit Circle</option>
+                    <option value="annulus">Annulus (Ring)</option>
+                    <option value="uniform_disk">Uniform Disk</option>
+                    <option value="line" selected>Line Segment</option>
+                </select>
+                <div class="domain-options"></div>
+            `;
+
+            const select = container.querySelector('.domain-type-select');
+            select.addEventListener('change', () => updateDomainOptions(container));
+            updateDomainOptions(container);
+            return container;
+        }
+
+        function updateDomainOptions(container) {
+            const select = container.querySelector('.domain-type-select');
+            const optionsContainer = container.querySelector('.domain-options');
+            const type = select.value;
+
+            let html = '';
+            switch(type) {
+                case 'annulus':
+                    html = `<label>Min Radius:</label><input type="number" class="domain-param" name="min_radius" value="0.5"><label>Max Radius:</label><input type="number" class="domain-param" name="max_radius" value="1.0">`;
+                    break;
+                case 'uniform_disk':
+                    html = `<label>Max Radius:</label><input type="number" class="domain-param" name="max_radius" value="1.0">`;
+                    break;
+                case 'line':
+                    html = `<label>Start (real, imag):</label><input type="text" class="domain-param" name="start" value="-1, 0"><label>End (real, imag):</label><input type="text" class="domain-param" name="end" value="1, 0">`;
+                    break;
+            }
+            optionsContainer.innerHTML = html;
+        }
+
+        function getDomainSpec(varName) {
+            const container = document.querySelector(`.domain-spec[data-var-name="${varName}"]`);
+            const spec = { domain_type: container.querySelector('.domain-type-select').value };
+            container.querySelectorAll('.domain-param').forEach(input => {
+                const name = input.name;
+                if (name === 'start' || name === 'end') {
+                    spec[name] = input.value.split(',').map(s => parseFloat(s.trim()));
+                } else {
+                    spec[name] = parseFloat(input.value);
+                }
+            });
+            return spec;
+        }
+
+        async function initializeSystemInfo() {
+            try {
+                const response = await fetch('/api/system-info');
+                const systemInfo = await response.json();
+                const maxCores = systemInfo.max_cores;
+                maxCoresDisplay.textContent = maxCores;
+                maxWorkersSlider.max = maxCores;
+                const defaultCores = Math.max(1, Math.floor(maxCores / 4));
+                maxWorkersSlider.value = defaultCores;
+                coresDisplay.textContent = defaultCores;
+            } catch (error) {
+                console.error('Failed to fetch system info:', error);
+                maxCoresDisplay.textContent = 'Unknown';
+            }
+        }
+
+        maxWorkersSlider.addEventListener('input', function() { coresDisplay.textContent = this.value; });
+        useParallelCheckbox.addEventListener('change', function() {
+            parallelControls.style.opacity = this.checked ? '1' : '0.5';
+            parallelControls.style.pointerEvents = this.checked ? 'auto' : 'none';
+        });
+
+        function generateCoeffFields() {
+            const degree = parseInt(degreeInput.value, 10);
+            coeffsContainer.innerHTML = '';
+            for (let i = degree; i >= 0; i--) {
+                const div = document.createElement('div');
+                div.className = 'coeff-row';
+                const label = document.createElement('label');
+                label.innerText = i > 0 ? `x^${i}:` : `c:`;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.dataset.degree = i;
+                input.value = '0';
+                input.addEventListener('input', toggleZeroCoefficients);
+                div.appendChild(label);
+                div.appendChild(input);
+                coeffsContainer.appendChild(div);
+            }
+        }
+
+        let paramCount = 0;
+        function addParamField(name = '', spec = { type: 'freeform', definition: '' }) {
+            paramCount++;
+            const paramId = `param-row-${paramCount}`;
+            const div = document.createElement('div');
+            div.className = 'param-row';
+            div.id = paramId;
+            div.style.border = '1px solid #444';
+            div.style.padding = '10px';
+            div.style.borderRadius = '4px';
+            div.style.marginBottom = '1em';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'param-name';
+            nameInput.value = name || `P${paramCount}`;
+            nameInput.style.width = '20%';
+            
+            const typeSelect = document.createElement('select');
+            typeSelect.className = 'param-type-select';
+            typeSelect.innerHTML = `
+                <option value="freeform">Freeform</option>
+                <option value="alternating_geometric">Alternating Geometric</option>
+                <option value="chebyshev">Chebyshev</option>
+            `;
+            typeSelect.value = spec.type;
+            typeSelect.style.width = '40%';
+            typeSelect.style.marginLeft = '10px';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'X';
+            removeBtn.style.width = '15%';
+            removeBtn.style.marginLeft = '10px';
+            removeBtn.style.backgroundColor = '#dc3545';
+            removeBtn.onclick = () => document.getElementById(paramId).remove();
+            
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.appendChild(nameInput);
+            header.appendChild(typeSelect);
+            header.appendChild(removeBtn);
+
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'param-options';
+            optionsContainer.style.marginTop = '10px';
+
+            div.appendChild(header);
+            div.appendChild(optionsContainer);
+            paramsContainer.appendChild(div);
+
+            typeSelect.addEventListener('change', () => updateParamOptions(div));
+            updateParamOptions(div, spec);
+        }
+
+        function updateParamOptions(paramRow, spec = {}) {
+            const optionsContainer = paramRow.querySelector('.param-options');
+            const type = paramRow.querySelector('.param-type-select').value;
+            optionsContainer.innerHTML = ''; 
+
+            let html = '';
+            const variableSelector = `
+                <label>Input Variable:</label>
+                <select class="param-input" name="input_variable">
+                    <option value="t1" ${spec.input_variable === 't1' ? 'selected' : ''}>t1</option>
+                    <option value="t2" ${spec.input_variable === 't2' ? 'selected' : ''}>t2</option>
+                </select>
+            `;
+
+            switch(type) {
+                case 'freeform':
+                    html = `<label>Equation:</label><input type="text" class="param-input" name="definition" value="${spec.definition || ''}" style="width: 95%;">`;
+                    break;
+                case 'alternating_geometric':
+                    html = variableSelector +
+                           `<label>Amplitude (A1):</label><input type="text" class="param-input" name="amplitude" value="${spec.amplitude || '1.0'}">
+                            <label>Degree (k):</label><input type="number" class="param-input" name="k" value="${spec.k || 10}">`;
+                    break;
+                case 'chebyshev':
+                    html = variableSelector + 
+                           `<label>Degree (n):</label><input type="number" class="param-input" name="n" value="${spec.n || 12}">`;
+                    break;
+            }
+            optionsContainer.innerHTML = html;
+        }
+
+        let rootData = null;
+        
+        function setup() {
+            const container = document.getElementById('p5-canvas-container');
+            const size = Math.min(container.clientWidth, window.innerHeight * 0.8);
+            createCanvas(size, size).parent('p5-canvas-container');
+            colorMode(HSB, 360, 100, 100, 1.0);
+            background(0);
+            noLoop();
+        }
+        function draw() {}
+
+        async function generateRoots() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = 'Calculating roots...';
+            const coeffs = {};
+            coeffsContainer.querySelectorAll('.coeff-row input').forEach(input => { coeffs[input.dataset.degree] = input.value; });
+            
+            const params = {};
+            paramsContainer.querySelectorAll('.param-row').forEach(row => {
+                const name = row.querySelector('.param-name').value;
+                if (!name) return;
+                
+                const paramSpec = {
+                    type: row.querySelector('.param-type-select').value
+                };
+
+                row.querySelectorAll('.param-input').forEach(input => {
+                    const key = input.name;
+                    const value = (input.type === 'number') ? parseFloat(input.value) : input.value;
+                    paramSpec[key] = value;
+                });
+                params[name] = paramSpec;
+            });
+
+            const payload = {
+                degree: parseInt(degreeInput.value, 10),
+                coeffs: coeffs,
+                params: params,
+                n_pairs: document.getElementById('n_pairs').value,
+                seed: document.getElementById('seed').value,
+                grid_resolution: parseInt(document.getElementById('grid_resolution').value, 10),
+                use_parallel: useParallelCheckbox.checked,
+                max_workers: parseInt(maxWorkersSlider.value, 10),
+                t1_domain: getDomainSpec('t1'),
+                t2_domain: getDomainSpec('t2')
+            };
+            
+            const response = await fetch('/api/generate-roots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) { statusDiv.innerText = 'Error from server.'; return; }
+            rootData = await response.json();
+            if (rootData.error) { statusDiv.innerText = `Error: ${rootData.error}`; return; }
+
+            if (rootData.timing) {
+                const t = rootData.timing;
+                const backendName = payload.use_parallel ? `CPU (${payload.max_workers} cores)` : 'CPU (Sequential)';
+                let timingHtml = `<strong>Backend: ${backendName}</strong> | Total: <strong>${t.total.toFixed(3)}s</strong><br><small style="color: #aaa;">SymPy: ${t.sympy.toFixed(3)}s | Vector: ${t.vector.toFixed(3)}s | Roots: <strong>${t.roots.toFixed(3)}s</strong> | Post: ${t.post.toFixed(3)}s | Grid: ${t.grid.toFixed(3)}s</small>`;
+                statusDiv.innerHTML = timingHtml;
+            } else {
+                statusDiv.innerText = 'Roots computed!';
+            }
+            
+            visualizationControls.style.display = 'block';
+            applyVisualEffects();
+        }
+        
+        function applyVisualEffects() {
+            if (!rootData) { alert('Please generate roots first!'); return; }
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = 'Applying visual effects...';
+            setTimeout(() => {
+                drawArtwork();
+                statusDiv.innerText = 'Done.';
+            }, 50);
+        }
+
+        function drawArtwork() {
+            background(0);
+            const { density_grid, grid_size } = rootData;
+            const selectedPalette = document.getElementById('color_palette').value;
+            const renderStyle = document.getElementById('render_style').value;
+            const contrastBoost = parseFloat(document.getElementById('contrast_boost').value);
+            const blackPoint = parseFloat(document.getElementById('black_point').value);
+            
+            colorMode(RGB, 255);
+            const canvasSize = min(width, height) * 0.9;
+            const cellSize = canvasSize / grid_size;
+            
+            push();
+            translate(width / 2 - canvasSize / 2, height / 2 - canvasSize / 2);
+            
+            if (renderStyle === 'pure_pixel') {
+                drawPurePixels(density_grid, grid_size, cellSize, selectedPalette, contrastBoost, blackPoint);
+            } else if (renderStyle === 'smooth_glow') {
+                drawSmoothGlow(density_grid, grid_size, cellSize, selectedPalette, contrastBoost, blackPoint);
+            } else if (renderStyle === 'smoky_bloom') {
+                drawSmokyBloom(density_grid, grid_size, cellSize, selectedPalette, contrastBoost, blackPoint);
+            }
+            pop();
+            colorMode(HSB, 360, 100, 100, 1.0);
+
+            const addSignature = document.getElementById('add-signature-checkbox').checked;
+            const addEquation = document.getElementById('add-equation-checkbox').checked;
+
+            if (addSignature || addEquation) {
+                push();
+                fill(255, 0.7);
+                textSize(14);
+                textFont('monospace');
+                if (addSignature) {
+                    const signatureText = document.getElementById('signature-text').value;
+                    textAlign(RIGHT, BOTTOM);
+                    text(signatureText, width - 10, height - 10);
+                }
+                if (addEquation) {
+                    let equationParts = [];
+                    coeffsContainer.querySelectorAll('.coeff-row input').forEach(input => {
+                        const coeff = input.value.trim();
+                        const deg = input.dataset.degree;
+                        if (coeff && coeff !== '0') {
+                            let term = `${coeff}`;
+                            if (deg > 0) term += `x^${deg}`;
+                            equationParts.push(term);
+                        }
+                    });
+                    let equationText = 'P(x) = ' + equationParts.reverse().join(' + ').replace(/\+ -/g, '- ');
+                    let infoText = [equationText, '---'];
+                    
+                    const t1DomainType = document.querySelector('.domain-spec[data-var-name="t1"] .domain-type-select').value;
+                    const t2DomainType = document.querySelector('.domain-spec[data-var-name="t2"] .domain-type-select').value;
+                    infoText.push(`t1 in ${t1DomainType.replace(/_/g, ' ')}, t2 in ${t2DomainType.replace(/_/g, ' ')}`);
+
+                    document.querySelectorAll('.param-row').forEach((row) => {
+                        const name = row.querySelector('.param-name').value;
+                        const type = row.querySelector('.param-type-select').value;
+                        let defText = '';
+
+                        if (type === 'freeform') {
+                            const defInput = row.querySelector('input[name="definition"]');
+                            defText = defInput ? defInput.value : '[equation]';
+                        } else {
+                            // For templates, build a descriptive string like "Chebyshev(n=12, var=t1)"
+                            defText = `${type.charAt(0).toUpperCase() + type.slice(1)}(`;
+                            const parts = [];
+                            row.querySelectorAll('.param-input').forEach(input => {
+                                const key = (input.name === "input_variable") ? "var" : input.name;
+                                parts.push(`${key}=${input.value}`);
+                            });
+                            defText += parts.join(', ') + ')';
+                        }
+                        if (name) {
+                            infoText.push(`${name}: ${defText}`);
+                        }
+                    });
+
+                    textAlign(LEFT, TOP);
+                    text(infoText.join('\n'), 10, 10);
+                }
+                pop();
+            }
+        }
+        
+        function boostContrast(d, c) { return Math.pow(d, 1.0 / c); }
+        function remapColorValue(v) { return 0.1 + (0.9) * v; }
+        function applyBlackPoint(d, bp) { return d <= bp ? 0 : (d - bp) / (1.0 - bp); }
+        
+        function drawPurePixels(density_grid, grid_size, cellSize, palette, contrastBoost, blackPoint) {
+            noStroke();
+            for (let y = 0; y < grid_size; y++) {
+                for (let x = 0; x < grid_size; x++) {
+                    let d = density_grid[y][x];
+                    if (d > 0.001) {
+                        d = boostContrast(d, contrastBoost);
+                        d = applyBlackPoint(d, blackPoint);
+                        if (d > 0) {
+                            d = remapColorValue(d);
+                            const c = getColorFromPalette(d, palette);
+                            fill(red(c), green(c), blue(c), 255);
+                            rect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    }
+                }
+            }
+        }
+        
+        function drawSmoothGlow(density_grid, grid_size, cellSize, palette, contrastBoost, blackPoint) {
+            noStroke();
+            for (let y = 0; y < grid_size; y++) {
+                for (let x = 0; x < grid_size; x++) {
+                    let d = density_grid[y][x];
+                    if (d > 0.001) {
+                        d = boostContrast(d, contrastBoost);
+                        d = applyBlackPoint(d, blackPoint);
+                        if (d > 0) {
+                            d = remapColorValue(d);
+                            const c = getColorFromPalette(d, palette);
+                            if (d < 0.3) {
+                                fill(red(c), green(c), blue(c), map(d, 0, 0.3, 0.05, 0.3) * 255);
+                                circle(x * cellSize + cellSize/2, y * cellSize + cellSize/2, cellSize * map(d, 0, 0.3, 0.8, 1.2));
+                            } else {
+                                fill(red(c), green(c), blue(c), map(d, 0.3, 1, 0.7, 1.0) * 255);
+                                circle(x * cellSize + cellSize/2, y * cellSize + cellSize/2, cellSize * map(d, 0.3, 1, 1.2, 2.0));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function drawSmokyBloom(density_grid, grid_size, cellSize, palette, contrastBoost, blackPoint) {
+            noStroke();
+            blendMode(ADD);
+            for (let y = 0; y < grid_size; y++) {
+                for (let x = 0; x < grid_size; x++) {
+                    let d = density_grid[y][x];
+                    if (d > 0.001) {
+                        d = boostContrast(d, contrastBoost);
+                        d = applyBlackPoint(d, blackPoint);
+                        if (d > 0) {
+                            d = remapColorValue(d);
+                            const c = getColorFromPalette(d, palette);
+                            const cx = x * cellSize + cellSize/2;
+                            const cy = y * cellSize + cellSize/2;
+                            if (d < 0.2) {
+                                fill(red(c), green(c), blue(c), 0.01 * 255);
+                                circle(cx, cy, cellSize * 1.5);
+                            } else if (d < 0.6) {
+                                fill(red(c), green(c), blue(c), 0.05 * 255);
+                                circle(cx, cy, cellSize * 2.0);
+                                fill(red(c), green(c), blue(c), 0.15 * 255);
+                                circle(cx, cy, cellSize * 1.0);
+                            } else {
+                                fill(red(c), green(c), blue(c), 0.03 * 255);
+                                circle(cx, cy, cellSize * 3.0);
+                                fill(red(c), green(c), blue(c), 0.3 * 255);
+                                circle(cx, cy, cellSize * 1.8);
+                                fill(red(c), green(c), blue(c), 0.7 * 255);
+                                circle(cx, cy, cellSize * 0.8);
+                            }
+                        }
+                    }
+                }
+            }
+            blendMode(BLEND);
+        }
+
+        function getColorFromPalette(t, paletteName) {
+            t = constrain(t, 0, 1);
+            let r, g, b;
+            switch(paletteName) {
+                case 'inferno':
+                    if (t < 0.25) { r = lerp(0, 87, t/0.25); g = lerp(0, 16, t/0.25); b = lerp(4, 109, t/0.25); }
+                    else if (t < 0.5) { r = lerp(87, 144, (t-0.25)/0.25); g = lerp(16, 41, (t-0.25)/0.25); b = lerp(109, 138, (t-0.25)/0.25); }
+                    else if (t < 0.75) { r = lerp(144, 234, (t-0.5)/0.25); g = lerp(41, 162, (t-0.5)/0.25); b = lerp(138, 84, (t-0.5)/0.25); }
+                    else { r = lerp(234, 252, (t-0.75)/0.25); g = lerp(162, 255, (t-0.75)/0.25); b = lerp(84, 164, (t-0.75)/0.25); }
+                    break;
+                case 'plasma':
+                    r = lerp(13, 248, t); g = lerp(8, 134, t); b = lerp(135, 103, t);
+                    if (t > 0.5) { g = lerp(134, 252, (t - 0.5) * 2); }
+                    break;
+                case 'viridis':
+                    r = lerp(68, 253, t); g = lerp(1, 231, t); b = lerp(84, 37, t);
+                    if (t < 0.5) { g = lerp(1, 155, t * 2); }
+                    break;
+                case 'cool_nebula':
+                    r = lerp(50, 200, t); g = lerp(0, 220, t); b = lerp(100, 255, t);
+                    if (t > 0.6) { r = lerp(200, 255, (t-0.6)/0.4); g = lerp(220, 255, (t-0.6)/0.4); }
+                    break;
+                case 'fire_gradient':
+                    r = 255; g = lerp(0, 255, t); b = lerp(0, 100, t);
+                    if (t < 0.5) { g = lerp(0, 150, t*2); b = 0; }
+                    break;
+                case 'ocean_depths':
+                    r = lerp(0, 100, t); g = lerp(5, 200, t); b = lerp(20, 255, t);
+                    if (t > 0.7) { r = lerp(100, 200, (t-0.7)/0.3); g = lerp(200, 255, (t-0.7)/0.3); }
+                    break;
+                case 'emerald_dream':
+                    r = lerp(0, 50, t); g = lerp(50, 255, t); b = lerp(50, 150, t);
+                    if (t > 0.8) { r = lerp(50, 200, (t-0.8)/0.2); b = lerp(150, 220, (t-0.8)/0.2); }
+                    break;
+                case 'sunset_glow':
+                    r = lerp(100, 255, t); g = lerp(0, 200, t); b = lerp(100, 0, t);
+                    if (t > 0.5) { g = lerp(200, 255, (t-0.5)/0.5); }
+                    break;
+                // Other palettes omitted for brevity
+                default: return getColorFromPalette(t, 'inferno');
+            }
+            return color(r, g, b);
+        }
+
+        function toggleZeroCoefficients() {
+            const isChecked = hideZerosCheckbox.checked;
+            coeffsContainer.querySelectorAll('.coeff-row').forEach(row => {
+                const input = row.querySelector('input');
+                if (isChecked && (input.value.trim() === '0' || input.value.trim() === '')) {
+                    row.style.display = 'none';
+                } else {
+                    row.style.display = '';
+                }
+            });
+        }
+        hideZerosCheckbox.addEventListener('click', toggleZeroCoefficients);
+
+        setDegreeBtn.addEventListener('click', () => {
+            generateCoeffFields();
+            toggleZeroCoefficients();
+        });
+        addParamBtn.addEventListener('click', () => addParamField());
+        generateBtn.addEventListener('click', generateRoots);
+        applyEffectsBtn.addEventListener('click', applyVisualEffects);
+
+        document.getElementById('download-btn').addEventListener('click', () => {
+            saveCanvas('polynomial_art', 'png');
+        });
+
+        addSignatureCheckbox.addEventListener('change', () => {
+            if (rootData) drawArtwork();
+        });
+
+        addEquationCheckbox.addEventListener('change', () => {
+            if (rootData) drawArtwork();
+        });
+
+        domainControlsContainer.appendChild(createDomainUI('t1'));
+        domainControlsContainer.appendChild(createDomainUI('t2'));
+        generateCoeffFields();
+        document.querySelector('input[data-degree="24"]').value = '1';
+        document.querySelector('input[data-degree="23"]').value = '-1';
+        document.querySelector('input[data-degree="16"]').value = 'P1';
+        document.querySelector('input[data-degree="8"]').value = 'P2';
+        document.querySelector('input[data-degree="1"]').value = '1';
+        document.querySelector('input[data-degree="0"]').value = '-1';
+        addParamField('P1', { type: 'freeform', definition: '100*exp(I*t1)**5 - 100*exp(I*t2)**4' });
+        addParamField('P2', { type: 'freeform', definition: '100*exp(I*t2)**5 - 100*exp(I*t1)**4' });
+        initializeSystemInfo();
+        toggleZeroCoefficients();
+    </script>
+</body>
+</html>
