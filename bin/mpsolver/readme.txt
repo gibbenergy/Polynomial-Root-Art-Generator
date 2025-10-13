@@ -51,13 +51,11 @@ How to validate installation
   - perf_smoke.py (throughput; no strict threshold)
 
 Licensing and packaging
-- MPSolve is licensed under GPLv3+ (see upstream notices). Distributing MPSolve together with your application may impose GPL obligations on the combined distribution (e.g., providing source and applicable notices). Consult your legal/compliance team before shipping.
+- MPSolve is licensed under GPLv3+ (see upstream notices). 
 - GMP and MPFR are (L)GPL; MinGW runtime DLLs are under their respective licenses.
-- If you redistribute this folder to end users:
-  - Include license texts and notices for MPSolve, GMP, MPFR, and MinGW runtimes.
-  - Keep the DLLs together in the same bin/ directory.
-  - Ensure your app adds bin/ to PATH (or uses AddDllDirectory) before loading MPSolve.dll.
+
 
 Notes
 - This build targets MSYS2 UCRT64 (Windows, x86_64). If you update MSYS2 or rebuild, re-run the test suite to confirm compatibility.
 - For non-Python FFI (e.g., C/C++/Rust), link to MPSolve.dll (or use libMPSolve.dll.a) and pass contiguous double buffers as described above.
+
