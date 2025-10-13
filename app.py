@@ -12,20 +12,35 @@ from polynomial_templates.generators import get_polynomial_generator
 
 app = Flask(__name__)
 
-def find_roots_for_chunk(coeffs_chunk):
-    """Finds roots for a 2D array (chunk) of coefficient rows."""
+def find_roots_for_chunk_numpy(coeffs_chunk):
+    """Find roots for a 2D array (chunk) using NumPy."""
     return [np.roots(coeffs) for coeffs in coeffs_chunk]
 
-def find_roots_parallel(coeffs_batch, max_workers=6):
+def find_roots_for_chunk_mps(coeffs_chunk, out_digits=80):
+    """Find roots for a 2D array (chunk) using MPSolve backend."""
+    from backends.mps_adapter import roots_mpsolve
+    results = []
+    for coeffs in coeffs_chunk:
+        try:
+            results.append(roots_mpsolve(coeffs, out_digits=out_digits))
+        except Exception:
+            results.append(np.array([]))
+    return results
+
+def find_roots_parallel(coeffs_batch, max_workers=6, solver='numpy', mps_out_digits=80):
     """Find roots for a batch of coefficient arrays using batched parallel processing."""
-    
     # Split the entire batch of coefficients into chunks for each worker
     chunks = np.array_split(coeffs_batch, max_workers)
-    
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Submit each chunk as a single task
-        future_to_chunk = {executor.submit(find_roots_for_chunk, chunk): i for i, chunk in enumerate(chunks)}
-        
+        future_to_chunk = {}
+        for i, chunk in enumerate(chunks):
+            if solver == 'mpsolve':
+                future = executor.submit(find_roots_for_chunk_mps, chunk, mps_out_digits)
+            else:
+                future = executor.submit(find_roots_for_chunk_numpy, chunk)
+            future_to_chunk[future] = i
+
         # Collect results in order
         results_in_chunks = [None] * len(chunks)
         for future in concurrent.futures.as_completed(future_to_chunk):
@@ -35,7 +50,7 @@ def find_roots_parallel(coeffs_batch, max_workers=6):
             except Exception as exc:
                 print(f'Chunk {index} failed: {exc}')
                 results_in_chunks[index] = [] # Handle failure of a whole chunk
-        
+
         # Flatten the list of lists into a single list of root arrays
         return [root for chunk_result in results_in_chunks for root in chunk_result]
 
@@ -47,12 +62,14 @@ def generate_root_coordinates(payload):
     
     # --- Unpack Payload ---
     degree = payload.get('degree', 0)
-    coeffs_str = payload.get('coeffs', {})
+    terms_list = payload.get('terms', [])
     params_def = payload.get('params', {})
     n_pairs = int(payload.get('n_pairs', 20000)) 
     seed = int(payload.get('seed', 7))
     grid_size = int(payload.get('grid_resolution', 1080))  # User-selectable resolution
     use_parallel = payload.get('use_parallel', True)
+    solver_choice = str(payload.get('solver', 'numpy')).lower()
+    mps_out_digits = int(payload.get('mps_out_digits', 80))
     
     # Calculate max_workers based on system's cores
     default_workers = max(1, multiprocessing.cpu_count() // 4)
@@ -102,14 +119,26 @@ def generate_root_coordinates(payload):
                 # This parameter only depends on one variable
                 param_funcs[name] = lambdify(input_sym, expr, 'numpy')
 
-        # --- Lambdify Main Polynomial Coefficients ---
-        # These functions take the RESULTS of the param_funcs as arguments
+        # --- Lambdify Main Polynomial Coefficients (Sparse Terms) ---
+        # Validate and parse sparse terms: [{k, coeff, note?}]
         coeff_exprs = {}
+        seen_exponents = set()
+        for term in terms_list:
+            try:
+                k = int(term.get('k'))
+            except Exception:
+                return {'error': 'Invalid exponent k in terms.'}
+            if k > degree:
+                return {'error': 'Exponent k is higher than maximum degree N. Please fix it.'}
+            if k in seen_exponents:
+                return {'error': 'Exponent k is already defined. Please fix it.'}
+            seen_exponents.add(k)
+            coeff_str = str(term.get('coeff', '0'))
+            if not coeff_str.strip():
+                continue
+            coeff_exprs[k] = parse_expr(coeff_str, local_dict=param_symbols)
+
         ordered_param_symbols = list(param_symbols.values())
-        for i in range(degree + 1):
-            coeff_str = coeffs_str.get(str(i), '0')
-            if not coeff_str.strip(): continue
-            coeff_exprs[i] = parse_expr(coeff_str, local_dict=param_symbols)
         
         # Create a single function that calculates all coefficients at once
         # This is more efficient than calling one function per coefficient
@@ -159,13 +188,17 @@ def generate_root_coordinates(payload):
     # Root Finding
     roots_start = time.time()
     if use_parallel and max_workers > 1:
-        all_roots = find_roots_parallel(all_coeffs, max_workers)
+        all_roots = find_roots_parallel(all_coeffs, max_workers, solver_choice, mps_out_digits)
     else:
         all_roots = []
         for j in range(n_pairs):
             try:
-                all_roots.append(np.roots(all_coeffs[j, :]))
-            except np.linalg.LinAlgError:
+                if solver_choice == 'mpsolve':
+                    from backends.mps_adapter import roots_mpsolve
+                    all_roots.append(roots_mpsolve(all_coeffs[j, :], out_digits=mps_out_digits))
+                else:
+                    all_roots.append(np.roots(all_coeffs[j, :]))
+            except Exception:
                 all_roots.append(np.array([]))
     roots_time = time.time() - roots_start
     
@@ -186,7 +219,8 @@ def generate_root_coordinates(payload):
     post_time = time.time() - post_start
 
     print(f"Vectorized coefficient calculation: {vector_time:.3f}s")
-    print(f"Root finding ({n_pairs} pairs, {'parallel' if use_parallel and max_workers > 1 else 'sequential'}): {roots_time:.3f}s")
+    backend_name = f"MPSolve" if solver_choice == 'mpsolve' else 'NumPy'
+    print(f"Root finding ({n_pairs} pairs, {'parallel' if use_parallel and max_workers > 1 else 'sequential'}) [{backend_name}]: {roots_time:.3f}s")
     print(f"Root finding per pair: {roots_time/n_pairs*1000:.2f}ms")
     print(f"Post-processing: {post_time:.3f}s")
 
@@ -272,6 +306,32 @@ def system_info():
         'max_cores': multiprocessing.cpu_count(),
         'platform': multiprocessing.get_start_method()
     })
+
+
+_mps_smoke_done = False
+
+# --- Optional MPSolve Smoke Test (runs once on first request) ---
+@app.before_request
+def _mpsolve_smoke_once():
+    global _mps_smoke_done
+    if _mps_smoke_done:
+        return
+    try:
+        from backends.mps_adapter import roots_mpsolve
+        coeffs_desc = np.array([1.0, 0.0, 0.0, -1.0], dtype=np.complex128)  # x^3 - 1
+        roots = roots_mpsolve(coeffs_desc, out_digits=80)
+        if roots.size == 3:
+            resid = np.max(np.abs(roots**3 - 1.0))
+            if resid < 1e-8:
+                print('MPSolve backend available and validated.')
+            else:
+                print(f'MPSolve validation residual too high: {resid}')
+        else:
+            print(f'MPSolve validation failed: expected 3 roots, got {roots.size}')
+    except Exception as e:
+        print(f'MPSolve backend not available: {e}')
+    finally:
+        _mps_smoke_done = True
 
 if __name__ == '__main__':
     app.run(debug=True)

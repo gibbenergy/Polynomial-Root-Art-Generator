@@ -44,14 +44,39 @@
             <h3>1. Define Polynomial Structure</h3>
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                 <label for="degree">Degree:</label>
-                <input type="number" id="degree" value="24" style="width: 60px;">
+                <input type="number" id="degree" value="" placeholder="N" style="width: 80px;">
                 <button id="set-degree-btn" type="button">Set</button>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <input type="checkbox" id="hide-zeros-checkbox" style="width: auto;" checked>
-                <label for="hide-zeros-checkbox" style="margin: 0;">Hide Zero Coefficients</label>
+            <div id="sparse-editor" style="opacity: 0.5; pointer-events: none;">
+                <div style="display:flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div>
+                        <button id="add-row-btn" type="button">Add Row</button>
+                        <button id="duplicate-row-btn" type="button">Duplicate</button>
+                        <button id="remove-row-btn" type="button">Remove</button>
+                    </div>
+                    <div>
+                        <button id="add-range-btn" type="button">Add Range</button>
+                        <button id="add-set-btn" type="button">Add Set</button>
+                        <button id="zero-except-btn" type="button">Zero All Except</button>
+                        <button id="clear-all-btn" type="button">Clear All</button>
+                    </div>
+                </div>
+                <div style="border:1px solid #444; border-radius: 4px; overflow:auto; max-height: 240px;">
+                    <table id="terms-table" style="width:100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background:#222;">
+                                <th style="padding:6px; width:20%;">Exponent k</th>
+                                <th style="padding:6px;">Coefficient (expression)</th>
+                                <th style="padding:6px; width:30%;">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="terms-body">
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top:8px; font-size: 0.9em; color:#aaa;">Paste CSV/TSV with columns: k, coeff, notes</div>
+                <div id="poly-status" style="margin-top:8px; font-size: 0.9em; color:#ccc;">Degree -, nonzero terms 0, highest exponent -</div>
             </div>
-            <div id="coefficients-container"></div>
         </div>
         <div class="control-group" id="domain-controls">
             <h3>2. Define Sampling Domains</h3>
@@ -74,7 +99,7 @@
             <h3>4. Computation Settings</h3>
             <div class="form-row">
                 <label for="n_pairs">Samples:</label>
-                <input type="number" id="n_pairs" value="20000" min="1000">
+                <input type="number" id="n_pairs" value="200000" min="1000">
             </div>
             <div class="form-row">
                 <label for="seed">Seed:</label>
@@ -87,6 +112,17 @@
                     <option value="2048">2048x2048 (2K)</option>
                     <option value="4096">4096x4096 (4K)</option>
                 </select>
+            </div>
+            <div class="form-row">
+                <label for="solver_select">Solver:</label>
+                <select id="solver_select">
+                    <option value="numpy" selected>NumPy</option>
+                    <option value="mpsolve">MPSolve (high precision)</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="mps_out_digits">MPSolve Digits:</label>
+                <input type="number" id="mps_out_digits" value="80" min="20" max="200">
             </div>
             <div style="margin-top: 15px; padding: 10px; background-color: #333; border-radius: 4px; border-left: 3px solid #007bff;">
                 <h4 style="margin: 0 0 10px 0; color: #007bff;">Performance Settings</h4>
@@ -174,7 +210,7 @@
         // --- UI Control Logic ---
         const degreeInput = document.getElementById('degree');
         const setDegreeBtn = document.getElementById('set-degree-btn');
-        const coeffsContainer = document.getElementById('coefficients-container');
+        const termsBody = document.getElementById('terms-body');
         const paramsContainer = document.getElementById('params-container');
         const addParamBtn = document.getElementById('add-param-btn');
         const generateBtn = document.getElementById('generate-btn');
@@ -186,9 +222,11 @@
         const coresDisplay = document.getElementById('cores-display');
         const maxCoresDisplay = document.getElementById('max-cores-display');
         const parallelControls = document.getElementById('parallel-controls');
-        const hideZerosCheckbox = document.getElementById('hide-zeros-checkbox');
+        const sparseEditor = document.getElementById('sparse-editor');
         const addSignatureCheckbox = document.getElementById('add-signature-checkbox');
         const addEquationCheckbox = document.getElementById('add-equation-checkbox');
+            const solverSelect = document.getElementById('solver_select');
+            const mpsDigitsInput = document.getElementById('mps_out_digits');
 
         // --- Domain Control Logic ---
         function createDomainUI(varName) {
@@ -273,24 +311,121 @@
             parallelControls.style.pointerEvents = this.checked ? 'auto' : 'none';
         });
 
-        function generateCoeffFields() {
-            const degree = parseInt(degreeInput.value, 10);
-            coeffsContainer.innerHTML = '';
-            for (let i = degree; i >= 0; i--) {
-                const div = document.createElement('div');
-                div.className = 'coeff-row';
-                const label = document.createElement('label');
-                label.innerText = i > 0 ? `x^${i}:` : `c:`;
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.dataset.degree = i;
-                input.value = '0';
-                input.addEventListener('input', toggleZeroCoefficients);
-                div.appendChild(label);
-                div.appendChild(input);
-                coeffsContainer.appendChild(div);
-            }
+        function addEmptyRows(n=3) { for (let i=0;i<n;i++) addRow(); }
+        function addRow(k='', coeff='', note='') {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding:4px; border-top:1px solid #444;"><input type="number" class="k-input" value="${k}" style="width:100%;"></td>
+                <td style="padding:4px; border-top:1px solid #444;"><input type="text" class="coeff-input" value="${coeff}" placeholder="e.g., P1 or 0" style="width:100%;"></td>
+                <td style="padding:4px; border-top:1px solid #444;"><input type="text" class="note-input" value="${note}" style="width:100%;"></td>
+            `;
+            termsBody.appendChild(tr);
+            bindRow(tr);
         }
+        function bindRow(tr) {
+            const kInput = tr.querySelector('.k-input');
+            const cInput = tr.querySelector('.coeff-input');
+            [kInput, cInput].forEach(el => el.addEventListener('input', validateAndSort));
+            tr.addEventListener('click', () => tr.classList.toggle('selected'));
+        }
+        function getRows() {
+            return Array.from(termsBody.querySelectorAll('tr')).map(tr => ({
+                tr,
+                k: tr.querySelector('.k-input').value.trim(),
+                coeff: tr.querySelector('.coeff-input').value.trim(),
+                note: tr.querySelector('.note-input').value.trim()
+            }));
+        }
+        function trIsInvalid(tr) { return tr.classList.contains('invalid'); }
+        function setStatus() {
+            const N = parseInt(degreeInput.value, 10);
+            const rows = getRows();
+            const valid = rows.filter(r => r.k !== '' && r.coeff !== '' && !trIsInvalid(r.tr));
+            const exps = valid.map(v => parseInt(v.k, 10));
+            const Kmax = exps.length ? Math.max(...exps) : '-';
+            document.getElementById('poly-status').innerText = `Degree ${isNaN(N)?'-':N}, nonzero terms ${valid.length}, highest exponent ${Kmax}`;
+        }
+        function validateAndSort() {
+            const N = parseInt(degreeInput.value, 10);
+            const rows = getRows();
+            let hasError = false;
+            const seen = new Set();
+            rows.forEach(({tr, k, coeff}) => {
+                tr.classList.remove('invalid');
+                if (k === '' && coeff === '') return;
+                const kk = parseInt(k, 10);
+                if (isNaN(kk)) { tr.classList.add('invalid'); hasError = true; return; }
+                if (kk > N) { tr.classList.add('invalid'); hasError = true; }
+                if (seen.has(kk)) { tr.classList.add('invalid'); hasError = true; }
+                seen.add(kk);
+                if (!coeff) { tr.classList.add('invalid'); hasError = true; }
+            });
+            rows.sort((a,b) => (parseInt(b.k||'-1',10)||-1) - (parseInt(a.k||'-1',10)||-1));
+            termsBody.innerHTML = '';
+            rows.forEach(r => termsBody.appendChild(r.tr));
+            generateBtn.disabled = hasError;
+            setStatus();
+        }
+
+        function selectedRows() {
+            return Array.from(termsBody.querySelectorAll('tr.selected'));
+        }
+
+        document.getElementById('add-row-btn').addEventListener('click', () => {
+            addRow();
+            validateAndSort();
+        });
+
+        document.getElementById('remove-row-btn').addEventListener('click', () => {
+            selectedRows().forEach(tr => tr.remove());
+            validateAndSort();
+        });
+
+        document.getElementById('duplicate-row-btn').addEventListener('click', () => {
+            selectedRows().forEach(tr => {
+                const k = tr.querySelector('.k-input').value;
+                const c = tr.querySelector('.coeff-input').value;
+                const n = tr.querySelector('.note-input').value;
+                addRow(k, c, n);
+            });
+            validateAndSort();
+        });
+
+        document.getElementById('add-range-btn').addEventListener('click', () => {
+            const spec = prompt('Add Range: start, stop, step, coeff');
+            if (!spec) return;
+            const [start, stop, step, coeff] = spec.split(',').map(s => s.trim());
+            const a = parseInt(start, 10), b = parseInt(stop, 10), s = parseInt(step, 10);
+            if (isNaN(a)||isNaN(b)||isNaN(s)||!coeff) { alert('Invalid range input'); return; }
+            for (let k=a; k<=b; k+=s) addRow(String(k), coeff, 'range');
+            validateAndSort();
+        });
+
+        document.getElementById('add-set-btn').addEventListener('click', () => {
+            const ksText = prompt('Add Set: list exponents k separated by spaces');
+            if (!ksText) return;
+            const coeff = prompt('Coefficient for all listed exponents');
+            if (!coeff) return;
+            ksText.split(/\s+/).filter(Boolean).forEach(k => addRow(k, coeff, 'set'));
+            validateAndSort();
+        });
+
+        document.getElementById('zero-except-btn').addEventListener('click', () => {
+            const keepText = prompt('Zero all except: list exponents k separated by spaces');
+            if (!keepText) return;
+            const keep = new Set(keepText.split(/\s+/).filter(Boolean).map(s => parseInt(s,10)));
+            termsBody.querySelectorAll('tr').forEach(tr => {
+                const k = parseInt(tr.querySelector('.k-input').value, 10);
+                if (!keep.has(k)) tr.remove();
+            });
+            validateAndSort();
+        });
+
+        document.getElementById('clear-all-btn').addEventListener('click', () => {
+            termsBody.innerHTML = '';
+            addEmptyRows(3);
+            validateAndSort();
+        });
 
         let paramCount = 0;
         function addParamField(name = '', spec = { type: 'freeform', definition: '' }) {
@@ -392,8 +527,12 @@
         async function generateRoots() {
             const statusDiv = document.getElementById('status');
             statusDiv.innerText = 'Calculating roots...';
-            const coeffs = {};
-            coeffsContainer.querySelectorAll('.coeff-row input').forEach(input => { coeffs[input.dataset.degree] = input.value; });
+            const terms = [];
+            getRows().forEach(r => {
+                const k = parseInt(r.k, 10);
+                const c = r.coeff.trim();
+                if (!isNaN(k) && c) terms.push({ k, coeff: c, note: r.note });
+            });
             
             const params = {};
             paramsContainer.querySelectorAll('.param-row').forEach(row => {
@@ -414,7 +553,7 @@
 
             const payload = {
                 degree: parseInt(degreeInput.value, 10),
-                coeffs: coeffs,
+                terms: terms,
                 params: params,
                 n_pairs: document.getElementById('n_pairs').value,
                 seed: document.getElementById('seed').value,
@@ -422,7 +561,9 @@
                 use_parallel: useParallelCheckbox.checked,
                 max_workers: parseInt(maxWorkersSlider.value, 10),
                 t1_domain: getDomainSpec('t1'),
-                t2_domain: getDomainSpec('t2')
+                t2_domain: getDomainSpec('t2'),
+                solver: solverSelect.value,
+                mps_out_digits: parseInt(mpsDigitsInput.value, 10)
             };
             
             const response = await fetch('/api/generate-roots', {
@@ -437,7 +578,7 @@
 
             if (rootData.timing) {
                 const t = rootData.timing;
-                const backendName = payload.use_parallel ? `CPU (${payload.max_workers} cores)` : 'CPU (Sequential)';
+                const backendName = payload.solver === 'mpsolve' ? (payload.use_parallel ? `MPSolve (${payload.max_workers} cores)` : 'MPSolve (Sequential)') : (payload.use_parallel ? `NumPy (${payload.max_workers} cores)` : 'NumPy (Sequential)');
                 let timingHtml = `<strong>Backend: ${backendName}</strong> | Total: <strong>${t.total.toFixed(3)}s</strong><br><small style="color: #aaa;">SymPy: ${t.sympy.toFixed(3)}s | Vector: ${t.vector.toFixed(3)}s | Roots: <strong>${t.roots.toFixed(3)}s</strong> | Post: ${t.post.toFixed(3)}s | Grid: ${t.grid.toFixed(3)}s</small>`;
                 statusDiv.innerHTML = timingHtml;
             } else {
@@ -498,12 +639,12 @@
                 }
                 if (addEquation) {
                     let equationParts = [];
-                    coeffsContainer.querySelectorAll('.coeff-row input').forEach(input => {
-                        const coeff = input.value.trim();
-                        const deg = input.dataset.degree;
-                        if (coeff && coeff !== '0') {
-                            let term = `${coeff}`;
-                            if (deg > 0) term += `x^${deg}`;
+                    getRows().forEach(r => {
+                        const k = parseInt(r.k, 10);
+                        const c = r.coeff.trim();
+                        if (!isNaN(k) && c) {
+                            let term = `${c}`;
+                            if (k > 0) term += `x^${k}`;
                             equationParts.push(term);
                         }
                     });
@@ -672,22 +813,16 @@
             return color(r, g, b);
         }
 
-        function toggleZeroCoefficients() {
-            const isChecked = hideZerosCheckbox.checked;
-            coeffsContainer.querySelectorAll('.coeff-row').forEach(row => {
-                const input = row.querySelector('input');
-                if (isChecked && (input.value.trim() === '0' || input.value.trim() === '')) {
-                    row.style.display = 'none';
-                } else {
-                    row.style.display = '';
-                }
-            });
-        }
-        hideZerosCheckbox.addEventListener('click', toggleZeroCoefficients);
+        // legacy zero-coefficient toggle removed with sparse editor
 
         setDegreeBtn.addEventListener('click', () => {
-            generateCoeffFields();
-            toggleZeroCoefficients();
+            const N = parseInt(degreeInput.value, 10);
+            if (isNaN(N) || N < 0) { alert('Enter a valid non-negative integer degree.'); return; }
+            sparseEditor.style.opacity = '1';
+            sparseEditor.style.pointerEvents = 'auto';
+            termsBody.innerHTML = '';
+            addEmptyRows(3);
+            validateAndSort();
         });
         addParamBtn.addEventListener('click', () => addParamField());
         generateBtn.addEventListener('click', generateRoots);
@@ -707,17 +842,25 @@
 
         domainControlsContainer.appendChild(createDomainUI('t1'));
         domainControlsContainer.appendChild(createDomainUI('t2'));
-        generateCoeffFields();
-        document.querySelector('input[data-degree="24"]').value = '1';
-        document.querySelector('input[data-degree="23"]').value = '-1';
-        document.querySelector('input[data-degree="16"]').value = 'P1';
-        document.querySelector('input[data-degree="8"]').value = 'P2';
-        document.querySelector('input[data-degree="1"]').value = '1';
-        document.querySelector('input[data-degree="0"]').value = '-1';
         addParamField('P1', { type: 'freeform', definition: '100*exp(I*t1)**5 - 100*exp(I*t2)**4' });
         addParamField('P2', { type: 'freeform', definition: '100*exp(I*t2)**5 - 100*exp(I*t1)**4' });
+        addParamField('C', { type: 'freeform', definition: 't1 + t2' });
+        
+        // Set default polynomial structure
+        degreeInput.value = '24';
+        sparseEditor.style.opacity = '1';
+        sparseEditor.style.pointerEvents = 'auto';
+        termsBody.innerHTML = '';
+        addRow('24', '-1');
+        addRow('16', 'P1');
+        addRow('8', 'P2');
+        addRow('1', '1');
+        addRow('0', '-1');
+        validateAndSort();
+        
         initializeSystemInfo();
-        toggleZeroCoefficients();
+        // initialize status line for sparse editor
+        setStatus();
     </script>
 </body>
 </html>
