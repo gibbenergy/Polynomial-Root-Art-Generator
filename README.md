@@ -25,7 +25,7 @@ Version 2.0 represents a major upgrade with two key improvements that transform 
 - This limited the quality and complexity of artwork that could be generated
 
 **The Solution in v2:**
-- Integrated **MPSolve**, a state-of-the-art polynomial root solver with arbitrary precision capabilities
+- Integrated **MPSolve**, a robust polynomial root solver with arbitrary precision capabilities
 - MPSolve uses adaptive multi-precision arithmetic (up to 200+ digits) via GMP and MPFR libraries
 - Provides mathematically accurate roots even for extremely high-degree polynomials (degree 100+)
 
