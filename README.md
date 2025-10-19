@@ -91,8 +91,30 @@ Version 2.0 represents a major upgrade with two key improvements that transform 
 ## Getting Started
 
 To run this project, you need a 64-bit Windows system.
+### 1. Extract the repository correctly
 
-### 1. Run the Installer (One-Time Setup)
+After downloading the ZIP from GitHub, **extract it once only**.
+
+> ⚠️ **Common mistake:**  
+> Some archive tools create a nested folder structure like  
+> `Polynomial-Root-Art-Generator-main/Polynomial-Root-Art-Generator-main/...`
+
+If you see that duplication, move the **inner folder’s contents** up one level so that your directory looks like this:
+``` text
+Polynomial-Root-Art-Generator-main/
+│
+├── app.py
+├── install.bat
+├── start.bat
+├── requirements.txt
+├── asset/
+├── backends/
+└── ...
+```
+
+Make sure the file **install.bat** is directly inside the main project folder (not one level deeper).
+
+### 2. Run the Installer (One-Time Setup)
 
 First, run the `install.bat` script by double-clicking it.
 
@@ -102,7 +124,7 @@ First, run the `install.bat` script by double-clicking it.
 
 This will download and set up a self-contained Python environment in a local `miniconda3` folder. It will not affect your system's PATH or any other Python installations. You only need to do this once.
 
-### 2. Start the Application
+### 3. Start the Application
 
 Once the installation is complete, run `start.bat` to launch the application.
 
