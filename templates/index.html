@@ -2,212 +2,982 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Polynomial Root Art Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polynomiogram Studio</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
-        body { font-family: sans-serif; background-color: #1a1a1a; color: #e0e0e0; margin: 0; padding: 1em; display: flex; gap: 1em; }
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; }
-        .controls-column { min-width: 350px; max-width: 350px; background-color: #2a2a2a; padding: 1em; border-radius: 8px; height: fit-content; }
-        .control-group { margin-bottom: 1.5em; }
-        label, input, button, textarea { display: block; width: 95%; margin-bottom: 0.8em; }
-        input, textarea { padding: 0.5em; border-radius: 4px; border: 1px solid #444; background-color: #333; color: #e0e0e0; }
-        button { padding: 0.8em; border: none; border-radius: 4px; background-color: #007bff; color: white; cursor: pointer; }
-        #p5-canvas-container { min-height: 80vh; min-width: 80vh; display: flex; justify-content: center; align-items: center; border: 2px dashed #444; border-radius: 8px; background-color: #000; }
-        #status { margin-top: 1em; }
-        .action-buttons { display: flex; justify-content: center; gap: 1em; margin-top: 1em; width: 80vh; }
-        .action-buttons button { width: 48%; }
-        #right-controls .control-group {
-            border: 1px solid #444;
-            padding: 1em;
-            border-radius: 6px;
-            background-color: #333;
+        :root {
+            --spacing-unit: 8px;
+            --spacing-2x: 16px;
+            --spacing-3x: 24px;
+            --spacing-4x: 32px;
+            
+            /* Dark theme (default) */
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --bg-card: #2a2a2a;
+            --bg-hover: #333333;
+            
+            --text-primary: #e8e8e8;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #808080;
+            
+            --border-color: #404040;
+            --divider-color: #353535;
+            
+            /* Accent colors from logo */
+            --accent-primary: #4169e1; /* Indigo blue */
+            --accent-secondary: #ff8c42; /* Orange */
+            --accent-hover: #5a7eec;
+            --accent-active: #365cc8;
+            
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+            
+            --header-height: 56px;
+            --panel-width: 360px;
         }
+        
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #eeeeee;
+            --bg-card: #fafafa;
+            --bg-hover: #e0e0e0;
+            
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --text-tertiary: #757575;
+            
+            --border-color: #d0d0d0;
+            --divider-color: #e8e8e8;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Header */
+        .app-header {
+            height: var(--header-height);
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--spacing-3x);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-brand {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .header-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: var(--spacing-2x);
+            align-items: center;
+        }
+        
+        .icon-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: var(--spacing-unit);
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .icon-btn:hover {
+            background-color: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: calc(var(--spacing-unit) + 2px) var(--spacing-2x);
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 36px;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+        
+        .btn-primary:active {
+            background-color: var(--accent-active);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Main Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .side-panel {
+            width: var(--panel-width);
+            background-color: var(--bg-primary);
+            border-right: 1px solid var(--divider-color);
+            overflow-y: auto;
+            padding: var(--spacing-2x);
+        }
+        
+        .panel-center {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: var(--bg-primary);
+            overflow-y: auto;
+            padding: var(--spacing-3x);
+        }
+        
+        /* Collapsible Sections */
+        .section {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: var(--spacing-2x);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-2x);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        
+        .section-header:hover {
+            background-color: var(--bg-hover);
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-unit);
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .section-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background-color: var(--accent-primary);
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .section-caret {
+            width: 20px;
+            height: 20px;
+            transition: transform 0.2s;
+            color: var(--text-secondary);
+        }
+        
+        .section-caret.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .section-content {
+            padding: 0 var(--spacing-2x) var(--spacing-2x);
+            display: none;
+        }
+        
+        .section-content.expanded {
+            display: block;
+        }
+        
+        /* Form Elements */
+        .form-group {
+            margin-bottom: var(--spacing-2x);
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-unit);
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: calc(var(--spacing-unit) + 2px) 12px;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            min-height: 36px;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            background-color: var(--bg-secondary);
+        }
+        
         .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-2x);
+            align-items: start;
+        }
+        
+        .form-row-label {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Canvas Container */
+        #p5-canvas-container {
+            background-color: #000;
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 600px;
+            min-height: 600px;
+        }
+        
+        .canvas-actions {
+            margin-top: var(--spacing-3x);
+            display: flex;
+            gap: var(--spacing-2x);
+            align-items: center;
+        }
+        
+        .btn-stop {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 12px 32px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: not-allowed;
+            transition: all 0.2s;
+            opacity: 0.5;
+        }
+        
+        .btn-stop.active {
+            background-color: var(--error);
+            color: white;
+            border: none;
+            cursor: pointer;
+            opacity: 1;
+        }
+        
+        .btn-stop.active:hover {
+            background-color: #d32f2f;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            margin-top: var(--spacing-2x);
+            padding: var(--spacing-2x);
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid var(--bg-tertiary);
+            border-top: 3px solid var(--accent-primary);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: var(--spacing-unit);
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            color: var(--text-tertiary);
+            margin-left: 4px;
+        }
+        
+        .tooltip-text {
+            visibility: hidden;
+            width: 220px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            text-align: left;
+            border-radius: 6px;
+            padding: var(--spacing-unit);
+            position: absolute;
+            z-index: 1000;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Theme Toggle */
+        .theme-toggle {
+            width: 48px;
+            height: 24px;
+            background-color: var(--bg-tertiary);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+        }
+        
+        .theme-toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background-color: var(--accent-primary);
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        
+        [data-theme="light"] .theme-toggle-slider {
+            transform: translateX(24px);
+        }
+        
+        /* Button styles */
+        .btn-secondary {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: calc(var(--spacing-unit) + 2px) var(--spacing-2x);
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 36px;
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--bg-hover);
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            min-height: 30px;
+        }
+        
+        /* Table styles for sparse editor */
+        .sparse-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: var(--spacing-2x);
+        }
+        
+        .sparse-table th {
+            background-color: var(--bg-tertiary);
+            padding: var(--spacing-unit);
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .sparse-table td {
+            padding: 6px var(--spacing-unit);
+            border-bottom: 1px solid var(--divider-color);
+        }
+        
+        .sparse-table tr.selected {
+            background-color: rgba(65, 105, 225, 0.1);
+        }
+        
+        .sparse-table tr.invalid {
+            background-color: rgba(244, 67, 54, 0.1);
+        }
+        
+        .sparse-table input {
+            width: 100%;
+            padding: 4px 8px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+        
+        /* Button groups */
+        .btn-group {
+            display: flex;
+            gap: var(--spacing-unit);
+            flex-wrap: wrap;
+        }
+        
+        /* Help drawer */
+        .preset-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        
+        .preset-modal.open {
+            display: flex;
+        }
+        
+        .preset-modal-content {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: var(--spacing-3x);
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        
+        .preset-modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1em;
+            margin-bottom: var(--spacing-3x);
         }
-        .form-row label {
-            margin-bottom: 0;
-            flex-basis: 45%;
+        
+        .preset-modal-title {
+            font-size: 20px;
+            font-weight: 600;
         }
-        .form-row select, .form-row input {
-            margin-bottom: 0;
-            flex-basis: 50%;
+        
+        .preset-modal-close {
+            font-size: 28px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            line-height: 1;
+        }
+        
+        .preset-modal-close:hover {
+            color: var(--text-primary);
+        }
+        
+        .preset-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-2x);
+        }
+        
+        .preset-empty {
+            text-align: center;
+            padding: var(--spacing-4x);
+            color: var(--text-tertiary);
+        }
+        
+        .help-drawer {
+            position: fixed;
+            right: -400px;
+            top: var(--header-height);
+            width: 400px;
+            height: calc(100vh - var(--header-height));
+            background-color: var(--bg-card);
+            border-left: 1px solid var(--border-color);
+            box-shadow: -4px 0 12px rgba(0,0,0,0.3);
+            transition: right 0.3s;
+            z-index: 99;
+            overflow-y: auto;
+            padding: var(--spacing-3x);
+        }
+        
+        .help-drawer.open {
+            right: 0;
+        }
+        
+        .help-close {
+            float: right;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+        
+        /* Checkbox styles */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-unit);
+            margin-bottom: var(--spacing-2x);
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group label {
+            font-size: 13px;
+            cursor: pointer;
+            margin: 0;
+        }
+        
+        /* Preset panel */
+        .preset-item {
+            padding: var(--spacing-2x);
+            background-color: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: var(--spacing-unit);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .preset-item:hover {
+            background-color: var(--bg-hover);
+        }
+        
+        .preset-name {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
+        .preset-date {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Progress bar */
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: var(--spacing-unit);
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background-color: var(--accent-primary);
+            transition: width 0.3s;
+            width: 0%;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .side-panel {
+                width: 320px;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .app-container {
+                flex-direction: column;
+            }
+            .side-panel {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--divider-color);
+            }
         }
     </style>
 </head>
 <body>
-    <div class="controls-column" id="left-controls">
-        <div class="control-group">
-            <h3>1. Define Polynomial Structure</h3>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <label for="degree">Degree:</label>
-                <input type="number" id="degree" value="" placeholder="N" style="width: 80px;">
-                <button id="set-degree-btn" type="button">Set</button>
-            </div>
-            <div id="sparse-editor" style="opacity: 0.5; pointer-events: none;">
-                <div style="display:flex; justify-content: space-between; margin-bottom: 8px;">
-                    <div>
-                        <button id="add-row-btn" type="button">Add Row</button>
-                        <button id="duplicate-row-btn" type="button">Duplicate</button>
-                        <button id="remove-row-btn" type="button">Remove</button>
-                    </div>
-                    <div>
-                        <button id="add-range-btn" type="button">Add Range</button>
-                        <button id="add-set-btn" type="button">Add Set</button>
-                        <button id="zero-except-btn" type="button">Zero All Except</button>
-                        <button id="clear-all-btn" type="button">Clear All</button>
-                    </div>
-                </div>
-                <div style="border:1px solid #444; border-radius: 4px; overflow:auto; max-height: 240px;">
-                    <table id="terms-table" style="width:100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background:#222;">
-                                <th style="padding:6px; width:20%;">Exponent k</th>
-                                <th style="padding:6px;">Coefficient (expression)</th>
-                                <th style="padding:6px; width:30%;">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody id="terms-body">
-                        </tbody>
-                    </table>
-                </div>
-                <div style="margin-top:8px; font-size: 0.9em; color:#aaa;">Paste CSV/TSV with columns: k, coeff, notes</div>
-                <div id="poly-status" style="margin-top:8px; font-size: 0.9em; color:#ccc;">Degree -, nonzero terms 0, highest exponent -</div>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-brand">
+            <span class="header-title">Polynomiogram Studio</span>
+        </div>
+        <div class="header-actions">
+            <div class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                <div class="theme-toggle-slider"></div>
             </div>
         </div>
-        <div class="control-group" id="domain-controls">
-            <h3>2. Define Sampling Domains</h3>
+    </header>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Left Panel -->
+        <div class="side-panel" id="left-panel">
+            <!-- Section 1: Polynomial -->
+            <div class="section">
+                <div class="section-header" data-section="polynomial">
+                    <div class="section-title">
+                        <span class="section-number">1</span>
+                        <span>Polynomial</span>
+                    </div>
+                    <svg class="section-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="section-content" id="polynomial-content">
+                    <div class="form-row">
+                        <div class="form-row-label">
+                            <label class="form-label">Degree
+                                <span class="tooltip">ⓘ
+                                    <span class="tooltip-text">Maximum power of x in polynomial</span>
+                                </span>
+                            </label>
+                            <input type="number" id="degree" class="form-input" placeholder="e.g., 24" min="0">
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button id="set-degree-btn" class="btn-primary" style="width: 100%;">Apply</button>
+                        </div>
+                    </div>
+                    
+                    <div id="sparse-editor" style="opacity: 0.5; pointer-events: none;">
+                        <div class="btn-group" style="margin-bottom: var(--spacing-2x);">
+                            <button id="add-row-btn" class="btn-secondary btn-small">+ Add</button>
+                            <button id="duplicate-row-btn" class="btn-secondary btn-small">Duplicate</button>
+                            <button id="remove-row-btn" class="btn-secondary btn-small">Remove</button>
+                        </div>
+                        <div class="btn-group" style="margin-bottom: var(--spacing-2x);">
+                            <button id="add-range-btn" class="btn-secondary btn-small">Range</button>
+                            <button id="add-set-btn" class="btn-secondary btn-small">Set</button>
+                            <button id="zero-except-btn" class="btn-secondary btn-small">Zero others</button>
+                            <button id="clear-all-btn" class="btn-secondary btn-small">Clear all</button>
+                        </div>
+                        
+                        <div style="max-height: 240px; overflow: auto; border: 1px solid var(--border-color); border-radius: 6px;">
+                            <table class="sparse-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 25%;">Exponent k</th>
+                                        <th>Coefficient</th>
+                                        <th style="width: 30%;">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="terms-body"></tbody>
+                            </table>
+                        </div>
+                        
+                        <div style="margin-top: var(--spacing-unit); font-size: 12px; color: var(--text-tertiary);">
+                            Paste CSV/TSV: k, coeff, notes
+                        </div>
+                        <div id="poly-status" style="margin-top: var(--spacing-unit); font-size: 12px; color: var(--text-secondary);">
+                            Degree -, terms 0, highest -
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Domains -->
+            <div class="section">
+                <div class="section-header" data-section="domains">
+                    <div class="section-title">
+                        <span class="section-number">2</span>
+                        <span>Domains</span>
+                    </div>
+                    <svg class="section-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="section-content" id="domain-controls"></div>
+            </div>
+
+            <!-- Section 3: Parameters -->
+            <div class="section">
+                <div class="section-header" data-section="parameters">
+                    <div class="section-title">
+                        <span class="section-number">3</span>
+                        <span>Parameters</span>
+                    </div>
+                    <svg class="section-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="section-content">
+                    <div id="params-container"></div>
+                    <button id="add-param-btn" class="btn-secondary" style="width: 100%; margin-top: var(--spacing-2x);">+ Add parameter</button>
+                </div>
+            </div>
         </div>
-        <div class="control-group">
-            <h3>3. Define Parameters</h3>
-            <div id="params-container"></div>
-            <button id="add-param-btn" type="button">Add Parameter</button>
+
+        <!-- Center Panel -->
+        <div class="panel-center">
+            <div id="p5-canvas-container"></div>
+            <div class="canvas-actions">
+                <button id="generate-btn" class="btn-primary" style="padding: 12px 32px; font-size: 15px;">Generate</button>
+                <button id="stop-btn" class="btn-stop">Stop</button>
+            </div>
+            <div class="status-bar" id="status">Ready</div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="side-panel" id="right-panel">
+            <!-- Section 4: Compute -->
+            <div class="section">
+                <div class="section-header" data-section="compute">
+                    <div class="section-title">
+                        <span class="section-number">4</span>
+                        <span>Compute</span>
+                    </div>
+                    <svg class="section-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="section-content">
+                    <div class="form-group">
+                        <label class="form-label">Samples</label>
+                        <input type="number" id="n_pairs" class="form-input" value="200000" min="1000">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Seed</label>
+                        <input type="number" id="seed" class="form-input" value="123">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Resolution</label>
+                        <select id="grid_resolution" class="form-select">
+                            <option value="1080" selected>1080×1080 (HD)</option>
+                            <option value="2048">2048×2048 (2K)</option>
+                            <option value="4096">4096×4096 (4K)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Solver</label>
+                        <select id="solver_select" class="form-select">
+                            <option value="numpy" selected>NumPy</option>
+                            <option value="mpsolve">MPSolve (high precision)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">MPSolve digits</label>
+                        <input type="number" id="mps_out_digits" class="form-input" value="80" min="20" max="200">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="use_parallel" checked>
+                        <label for="use_parallel">Enable parallel processing</label>
+                    </div>
+                    <div id="parallel-controls">
+                        <div class="form-group">
+                            <label class="form-label">CPU cores: <span id="cores-display">...</span></label>
+                            <input type="range" id="max_workers" min="1" class="form-input" style="padding: 0;">
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-tertiary);">
+                            Available: <span id="max-cores-display">Loading...</span> cores
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Visualize -->
+            <div class="section">
+                <div class="section-header" data-section="visualize">
+                    <div class="section-title">
+                        <span class="section-number">5</span>
+                        <span>Visualize</span>
+                    </div>
+                    <svg class="section-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="section-content">
+                    <div class="form-group">
+                        <label class="form-label">Color palette</label>
+                        <select id="color_palette" class="form-select">
+                            <option value="inferno" selected>Inferno</option>
+                            <option value="plasma">Plasma</option>
+                            <option value="viridis">Viridis</option>
+                            <option value="cool_nebula">Cool Nebula</option>
+                            <option value="fire_gradient">Fire Gradient</option>
+                            <option value="ocean_depths">Ocean Depths</option>
+                            <option value="emerald_dream">Emerald Dream</option>
+                            <option value="sunset_glow">Sunset Glow</option>
+                        </select>
+                    </div>
+                    
+                    <div id="visualization-controls" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Render style</label>
+                            <select id="render_style" class="form-select">
+                                <option value="pure_pixel">Pure pixel</option>
+                                <option value="smooth_glow" selected>Smooth glow</option>
+                                <option value="smoky_bloom">Smoky bloom</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Contrast boost</label>
+                            <select id="contrast_boost" class="form-select">
+                                <option value="1.0">Normal</option>
+                                <option value="2.0" selected>High</option>
+                                <option value="3.0">Extreme</option>
+                                <option value="5.0">Maximum</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Black point</label>
+                            <select id="black_point" class="form-select">
+                                <option value="0.0">None</option>
+                                <option value="0.1">Light</option>
+                                <option value="0.2">Medium</option>
+                                <option value="0.3" selected>High</option>
+                                <option value="0.5">Extreme</option>
+                                <option value="0.7">Maximum</option>
+                            </select>
+                        </div>
+                        <button id="apply-effects-btn" class="btn-primary" style="width: 100%;">Apply effects</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 6: Output -->
+            <div class="section">
+                <div class="section-header" data-section="output">
+                    <div class="section-title">
+                        <span class="section-number">6</span>
+                        <span>Output</span>
+                    </div>
+                    <svg class="section-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="section-content">
+                    <div class="form-group">
+                        <label class="form-label">Signature/watermark</label>
+                        <input type="text" id="signature-text" class="form-input" placeholder="Your name">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="add-signature-checkbox">
+                        <label for="add-signature-checkbox">Add signature to image</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="add-equation-checkbox">
+                        <label for="add-equation-checkbox">Add equation to image</label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Export format</label>
+                        <select id="export-format" class="form-select">
+                            <option value="png" selected>PNG</option>
+                            <option value="jpg">JPG</option>
+                        </select>
+                    </div>
+                    <button id="download-btn" class="btn-primary" style="width: 100%;">Download image</button>
+                    <button id="download-metadata-btn" class="btn-secondary" style="width: 100%; margin-top: var(--spacing-unit);">Download metadata (JSON)</button>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="main-content">
-        <div id="p5-canvas-container"></div>
-        <div class="action-buttons">
-            <button id="generate-btn">Generate Roots</button>
-        </div>
-        <div id="status">Ready</div>
-    </div>
-    <div class="controls-column" id="right-controls">
-        <div class="control-group">
-            <h3>4. Computation Settings</h3>
-            <div class="form-row">
-                <label for="n_pairs">Samples:</label>
-                <input type="number" id="n_pairs" value="200000" min="1000">
-            </div>
-            <div class="form-row">
-                <label for="seed">Seed:</label>
-                <input type="number" id="seed" value="123">
-            </div>
-            <div class="form-row">
-                <label for="grid_resolution">Grid Resolution:</label>
-                <select id="grid_resolution">
-                    <option value="1080" selected>1080x1080 (HD)</option>
-                    <option value="2048">2048x2048 (2K)</option>
-                    <option value="4096">4096x4096 (4K)</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label for="solver_select">Solver:</label>
-                <select id="solver_select">
-                    <option value="numpy" selected>NumPy</option>
-                    <option value="mpsolve">MPSolve (high precision)</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label for="mps_out_digits">MPSolve Digits:</label>
-                <input type="number" id="mps_out_digits" value="80" min="20" max="200">
-            </div>
-            <div style="margin-top: 15px; padding: 10px; background-color: #333; border-radius: 4px; border-left: 3px solid #007bff;">
-                <h4 style="margin: 0 0 10px 0; color: #007bff;">Performance Settings</h4>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <input type="checkbox" id="use_parallel" checked style="width: auto;">
-                    <label for="use_parallel" style="margin: 0;">Enable Parallel Processing</label>
-                </div>
-                <div id="parallel-controls">
-                    <label for="max_workers">Number of CPU Cores:</label>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="range" id="max_workers" min="1" style="flex: 1;">
-                        <span id="cores-display">...</span>
-                    </div>
-                    <div style="font-size: 0.8em; color: #aaa; margin-top: 5px;">
-                        Available: <span id="max-cores-display">Loading...</span> cores
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="control-group">
-            <h3>5. Visualization Settings</h3>
-            <div class="form-row">
-                <label for="color_palette">Color Palette:</label>
-                <select id="color_palette">
-                    <option value="inferno" selected>Inferno</option>
-                    <option value="plasma">Plasma</option>
-                    <option value="viridis">Viridis</option>
-                    <option value="cool_nebula">Cool Nebula</option>
-                    <option value="fire_gradient">Fire Gradient</option>
-                    <option value="ocean_depths">Ocean Depths</option>
-                    <option value="emerald_dream">Emerald Dream</option>
-                    <option value="sunset_glow">Sunset Glow</option>
-                </select>
-            </div>
-            <div id="visualization-controls" style="display: none;">
-                <div class="form-row">
-                    <label for="render_style">Render Style:</label>
-                    <select id="render_style">
-                        <option value="pure_pixel">Pure Pixel</option>
-                        <option value="smooth_glow" selected>Smooth Glow</option>
-                        <option value="smoky_bloom">Smoky Bloom</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label for="contrast_boost">Contrast Boost:</label>
-                    <select id="contrast_boost">
-                        <option value="1.0">Normal</option>
-                        <option value="2.0" selected>High</option>
-                        <option value="3.0">Extreme</option>
-                        <option value="5.0">Maximum</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label for="black_point">Black Point:</label>
-                    <select id="black_point">
-                        <option value="0.0">None</option>
-                        <option value="0.1">Light</option>
-                        <option value="0.2">Medium</option>
-                        <option value="0.3" selected>High</option>
-                        <option value="0.5">Extreme</option>
-                        <option value="0.7">Maximum</option>
-                    </select>
-                </div>
-                <button id="apply-effects-btn">Apply Visual Effects</button>
-            </div>
-        </div>
-        <div class="control-group">
-            <h3>6. Output Settings</h3>
-            <div class="form-row">
-                <label for="signature-text">Signature/Watermark:</label>
-                <input type="text" id="signature-text" placeholder="e.g., Your Name/Signature">
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
-                <input type="checkbox" id="add-signature-checkbox" style="width: auto;">
-                <label for="add-signature-checkbox" style="margin: 0;">Add signature to image</label>
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
-                <input type="checkbox" id="add-equation-checkbox" style="width: auto;">
-                <label for="add-equation-checkbox" style="margin: 0;">Add equation info to image</label>
-            </div>
-            <button id="download-btn" style="margin-top: 15px;">Download Image</button>
-        </div>
-    </div>
+
     <script>
-        // --- UI Control Logic ---
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const htmlEl = document.documentElement;
+        
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        htmlEl.setAttribute('data-theme', savedTheme);
+        
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlEl.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlEl.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+        
+        // Collapsible sections
+        document.querySelectorAll('.section-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const caret = header.querySelector('.section-caret');
+                const content = header.nextElementSibling;
+                const section = header.dataset.section;
+                
+                caret.classList.toggle('expanded');
+                content.classList.toggle('expanded');
+                
+                // Save state
+                const isExpanded = content.classList.contains('expanded');
+                localStorage.setItem(`section-${section}`, isExpanded);
+            });
+            
+            // Restore state - default to collapsed
+            const section = header.dataset.section;
+            const savedState = localStorage.getItem(`section-${section}`);
+            // If no saved state, keep collapsed (default). If saved state exists, use it.
+            if (savedState === 'true') {
+                header.querySelector('.section-caret').classList.add('expanded');
+                header.nextElementSibling.classList.add('expanded');
+            }
+        });
+        
+        // Continue with the same JavaScript logic from original file...
+        // (I'll add the rest of the JavaScript in the next part)
+        
         const degreeInput = document.getElementById('degree');
         const setDegreeBtn = document.getElementById('set-degree-btn');
         const termsBody = document.getElementById('terms-body');
@@ -225,28 +995,32 @@
         const sparseEditor = document.getElementById('sparse-editor');
         const addSignatureCheckbox = document.getElementById('add-signature-checkbox');
         const addEquationCheckbox = document.getElementById('add-equation-checkbox');
-            const solverSelect = document.getElementById('solver_select');
-            const mpsDigitsInput = document.getElementById('mps_out_digits');
-
-        // --- Domain Control Logic ---
+        const solverSelect = document.getElementById('solver_select');
+        const mpsDigitsInput = document.getElementById('mps_out_digits');
+        const stopBtn = document.getElementById('stop-btn');
+        
+        // Abort controller for canceling requests
+        let abortController = null;
+        
+        // Domain Control Logic (same as original)
         function createDomainUI(varName) {
             const container = document.createElement('div');
-            container.className = 'domain-spec';
-            container.style.border = '1px solid #444';
-            container.style.padding = '10px';
-            container.style.borderRadius = '4px';
-            container.style.marginBottom = '1em';
+            container.className = 'form-group';
             container.dataset.varName = varName;
+            container.style.border = '1px solid var(--border-color)';
+            container.style.padding = 'var(--spacing-2x)';
+            container.style.borderRadius = '6px';
+            container.style.marginBottom = 'var(--spacing-2x)';
 
             container.innerHTML = `
-                <label style="font-weight: bold; color: #00aaff;">Domain for ${varName}:</label>
-                <select class="domain-type-select">
-                    <option value="unit_circle">Unit Circle</option>
-                    <option value="annulus">Annulus (Ring)</option>
-                    <option value="uniform_disk">Uniform Disk</option>
-                    <option value="line" selected>Line Segment</option>
+                <label class="form-label" style="color: var(--accent-primary);">Domain for ${varName}</label>
+                <select class="domain-type-select form-select">
+                    <option value="unit_circle">Unit circle</option>
+                    <option value="annulus">Annulus (ring)</option>
+                    <option value="uniform_disk">Uniform disk</option>
+                    <option value="line" selected>Line segment</option>
                 </select>
-                <div class="domain-options"></div>
+                <div class="domain-options" style="margin-top: var(--spacing-2x);"></div>
             `;
 
             const select = container.querySelector('.domain-type-select');
@@ -263,20 +1037,43 @@
             let html = '';
             switch(type) {
                 case 'annulus':
-                    html = `<label>Min Radius:</label><input type="number" class="domain-param" name="min_radius" value="0.5"><label>Max Radius:</label><input type="number" class="domain-param" name="max_radius" value="1.0">`;
+                    html = `
+                        <div class="form-group">
+                            <label class="form-label">Min radius</label>
+                            <input type="number" class="domain-param form-input" name="min_radius" value="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max radius</label>
+                            <input type="number" class="domain-param form-input" name="max_radius" value="1.0">
+                        </div>
+                    `;
                     break;
                 case 'uniform_disk':
-                    html = `<label>Max Radius:</label><input type="number" class="domain-param" name="max_radius" value="1.0">`;
+                    html = `
+                        <div class="form-group">
+                            <label class="form-label">Max radius</label>
+                            <input type="number" class="domain-param form-input" name="max_radius" value="1.0">
+                        </div>
+                    `;
                     break;
                 case 'line':
-                    html = `<label>Start (real, imag):</label><input type="text" class="domain-param" name="start" value="-1, 0"><label>End (real, imag):</label><input type="text" class="domain-param" name="end" value="1, 0">`;
+                    html = `
+                        <div class="form-group">
+                            <label class="form-label">Start (real, imag)</label>
+                            <input type="text" class="domain-param form-input" name="start" value="-1, 0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">End (real, imag)</label>
+                            <input type="text" class="domain-param form-input" name="end" value="1, 0">
+                        </div>
+                    `;
                     break;
             }
             optionsContainer.innerHTML = html;
         }
 
         function getDomainSpec(varName) {
-            const container = document.querySelector(`.domain-spec[data-var-name="${varName}"]`);
+            const container = document.querySelector(`[data-var-name="${varName}"]`);
             const spec = { domain_type: container.querySelector('.domain-type-select').value };
             container.querySelectorAll('.domain-param').forEach(input => {
                 const name = input.name;
@@ -311,23 +1108,27 @@
             parallelControls.style.pointerEvents = this.checked ? 'auto' : 'none';
         });
 
+        // Sparse editor functions (same as original)
         function addEmptyRows(n=3) { for (let i=0;i<n;i++) addRow(); }
         function addRow(k='', coeff='', note='') {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="padding:4px; border-top:1px solid #444;"><input type="number" class="k-input" value="${k}" style="width:100%;"></td>
-                <td style="padding:4px; border-top:1px solid #444;"><input type="text" class="coeff-input" value="${coeff}" placeholder="e.g., P1 or 0" style="width:100%;"></td>
-                <td style="padding:4px; border-top:1px solid #444;"><input type="text" class="note-input" value="${note}" style="width:100%;"></td>
+                <td><input type="number" class="k-input" value="${k}"></td>
+                <td><input type="text" class="coeff-input" value="${coeff}" placeholder="e.g., P1 or 0"></td>
+                <td><input type="text" class="note-input" value="${note}"></td>
             `;
             termsBody.appendChild(tr);
             bindRow(tr);
         }
+        
         function bindRow(tr) {
             const kInput = tr.querySelector('.k-input');
             const cInput = tr.querySelector('.coeff-input');
-            [kInput, cInput].forEach(el => el.addEventListener('input', validateAndSort));
+            // Only validate when user leaves the field (blur), not while typing
+            [kInput, cInput].forEach(el => el.addEventListener('blur', validateAndSort));
             tr.addEventListener('click', () => tr.classList.toggle('selected'));
         }
+        
         function getRows() {
             return Array.from(termsBody.querySelectorAll('tr')).map(tr => ({
                 tr,
@@ -336,18 +1137,37 @@
                 note: tr.querySelector('.note-input').value.trim()
             }));
         }
+        
         function trIsInvalid(tr) { return tr.classList.contains('invalid'); }
+        
         function setStatus() {
             const N = parseInt(degreeInput.value, 10);
             const rows = getRows();
             const valid = rows.filter(r => r.k !== '' && r.coeff !== '' && !trIsInvalid(r.tr));
             const exps = valid.map(v => parseInt(v.k, 10));
             const Kmax = exps.length ? Math.max(...exps) : '-';
-            document.getElementById('poly-status').innerText = `Degree ${isNaN(N)?'-':N}, nonzero terms ${valid.length}, highest exponent ${Kmax}`;
+            document.getElementById('poly-status').innerText = `Degree ${isNaN(N)?'-':N}, terms ${valid.length}, highest ${Kmax}`;
         }
+        
         function validateAndSort() {
             const N = parseInt(degreeInput.value, 10);
             const rows = getRows();
+            
+            // Save currently focused element
+            const activeElement = document.activeElement;
+            let focusRowIndex = -1;
+            let focusFieldType = null;
+            
+            if (activeElement && (activeElement.classList.contains('k-input') || 
+                                  activeElement.classList.contains('coeff-input') || 
+                                  activeElement.classList.contains('note-input'))) {
+                const focusRow = activeElement.closest('tr');
+                focusRowIndex = Array.from(termsBody.querySelectorAll('tr')).indexOf(focusRow);
+                if (activeElement.classList.contains('k-input')) focusFieldType = 'k-input';
+                else if (activeElement.classList.contains('coeff-input')) focusFieldType = 'coeff-input';
+                else if (activeElement.classList.contains('note-input')) focusFieldType = 'note-input';
+            }
+            
             let hasError = false;
             const seen = new Set();
             rows.forEach(({tr, k, coeff}) => {
@@ -363,6 +1183,23 @@
             rows.sort((a,b) => (parseInt(b.k||'-1',10)||-1) - (parseInt(a.k||'-1',10)||-1));
             termsBody.innerHTML = '';
             rows.forEach(r => termsBody.appendChild(r.tr));
+            
+            // Restore focus
+            if (focusRowIndex >= 0 && focusFieldType) {
+                const newRows = termsBody.querySelectorAll('tr');
+                if (newRows[focusRowIndex]) {
+                    const fieldToFocus = newRows[focusRowIndex].querySelector(`.${focusFieldType}`);
+                    if (fieldToFocus) {
+                        fieldToFocus.focus();
+                        // Restore cursor position to end
+                        if (fieldToFocus.type === 'text' || fieldToFocus.type === 'number') {
+                            const len = fieldToFocus.value.length;
+                            fieldToFocus.setSelectionRange(len, len);
+                        }
+                    }
+                }
+            }
+            
             generateBtn.disabled = hasError;
             setStatus();
         }
@@ -392,7 +1229,7 @@
         });
 
         document.getElementById('add-range-btn').addEventListener('click', () => {
-            const spec = prompt('Add Range: start, stop, step, coeff');
+            const spec = prompt('Add range: start, stop, step, coeff');
             if (!spec) return;
             const [start, stop, step, coeff] = spec.split(',').map(s => s.trim());
             const a = parseInt(start, 10), b = parseInt(stop, 10), s = parseInt(step, 10);
@@ -402,7 +1239,7 @@
         });
 
         document.getElementById('add-set-btn').addEventListener('click', () => {
-            const ksText = prompt('Add Set: list exponents k separated by spaces');
+            const ksText = prompt('Add set: list exponents k separated by spaces');
             if (!ksText) return;
             const coeff = prompt('Coefficient for all listed exponents');
             if (!coeff) return;
@@ -427,51 +1264,55 @@
             validateAndSort();
         });
 
+        // Parameter functions
         let paramCount = 0;
         function addParamField(name = '', spec = { type: 'freeform', definition: '' }) {
             paramCount++;
             const paramId = `param-row-${paramCount}`;
             const div = document.createElement('div');
-            div.className = 'param-row';
+            div.className = 'form-group';
             div.id = paramId;
-            div.style.border = '1px solid #444';
-            div.style.padding = '10px';
-            div.style.borderRadius = '4px';
-            div.style.marginBottom = '1em';
+            div.style.border = '1px solid var(--border-color)';
+            div.style.padding = 'var(--spacing-2x)';
+            div.style.borderRadius = '6px';
+            div.style.marginBottom = 'var(--spacing-2x)';
 
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.gap = 'var(--spacing-unit)';
+            header.style.marginBottom = 'var(--spacing-2x)';
+            
             const nameInput = document.createElement('input');
             nameInput.type = 'text';
-            nameInput.className = 'param-name';
+            nameInput.className = 'param-name form-input';
             nameInput.value = name || `P${paramCount}`;
-            nameInput.style.width = '20%';
+            nameInput.style.flex = '1';
             
             const typeSelect = document.createElement('select');
-            typeSelect.className = 'param-type-select';
+            typeSelect.className = 'param-type-select form-select';
             typeSelect.innerHTML = `
                 <option value="freeform">Freeform</option>
-                <option value="alternating_geometric">Alternating Geometric</option>
+                <option value="alternating_geometric">Alternating geometric</option>
                 <option value="chebyshev">Chebyshev</option>
             `;
             typeSelect.value = spec.type;
-            typeSelect.style.width = '40%';
-            typeSelect.style.marginLeft = '10px';
+            typeSelect.style.flex = '1';
 
             const removeBtn = document.createElement('button');
-            removeBtn.textContent = 'X';
-            removeBtn.style.width = '15%';
-            removeBtn.style.marginLeft = '10px';
-            removeBtn.style.backgroundColor = '#dc3545';
+            removeBtn.textContent = '×';
+            removeBtn.className = 'btn-secondary btn-small';
+            removeBtn.style.background = 'var(--error)';
+            removeBtn.style.color = 'white';
+            removeBtn.style.width = '36px';
+            removeBtn.style.padding = '0';
             removeBtn.onclick = () => document.getElementById(paramId).remove();
             
-            const header = document.createElement('div');
-            header.style.display = 'flex';
             header.appendChild(nameInput);
             header.appendChild(typeSelect);
             header.appendChild(removeBtn);
 
             const optionsContainer = document.createElement('div');
             optionsContainer.className = 'param-options';
-            optionsContainer.style.marginTop = '10px';
 
             div.appendChild(header);
             div.appendChild(optionsContainer);
@@ -488,35 +1329,53 @@
 
             let html = '';
             const variableSelector = `
-                <label>Input Variable:</label>
-                <select class="param-input" name="input_variable">
-                    <option value="t1" ${spec.input_variable === 't1' ? 'selected' : ''}>t1</option>
-                    <option value="t2" ${spec.input_variable === 't2' ? 'selected' : ''}>t2</option>
-                </select>
+                <div class="form-group">
+                    <label class="form-label">Input variable</label>
+                    <select class="param-input form-select" name="input_variable">
+                        <option value="t1" ${spec.input_variable === 't1' ? 'selected' : ''}>t1</option>
+                        <option value="t2" ${spec.input_variable === 't2' ? 'selected' : ''}>t2</option>
+                    </select>
+                </div>
             `;
 
             switch(type) {
                 case 'freeform':
-                    html = `<label>Equation:</label><input type="text" class="param-input" name="definition" value="${spec.definition || ''}" style="width: 95%;">`;
+                    html = `
+                        <div class="form-group">
+                            <label class="form-label">Equation</label>
+                            <input type="text" class="param-input form-input" name="definition" value="${spec.definition || ''}">
+                        </div>
+                    `;
                     break;
                 case 'alternating_geometric':
                     html = variableSelector +
-                           `<label>Amplitude (A1):</label><input type="text" class="param-input" name="amplitude" value="${spec.amplitude || '1.0'}">
-                            <label>Degree (k):</label><input type="number" class="param-input" name="k" value="${spec.k || 10}">`;
+                           `<div class="form-group">
+                                <label class="form-label">Amplitude (A1)</label>
+                                <input type="text" class="param-input form-input" name="amplitude" value="${spec.amplitude || '1.0'}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Degree (k)</label>
+                                <input type="number" class="param-input form-input" name="k" value="${spec.k || 10}">
+                            </div>`;
                     break;
                 case 'chebyshev':
                     html = variableSelector + 
-                           `<label>Degree (n):</label><input type="number" class="param-input" name="n" value="${spec.n || 12}">`;
+                           `<div class="form-group">
+                                <label class="form-label">Degree (n)</label>
+                                <input type="number" class="param-input form-input" name="n" value="${spec.n || 12}">
+                            </div>`;
                     break;
             }
             optionsContainer.innerHTML = html;
         }
 
+        // P5.js and root generation (same logic as original, continued...)
         let rootData = null;
         
         function setup() {
             const container = document.getElementById('p5-canvas-container');
-            const size = Math.min(container.clientWidth, window.innerHeight * 0.8);
+            const size = Math.min(container.clientWidth, window.innerHeight * 0.7, 700);
+            pixelDensity(1); // Force 1:1 pixel density for crisp rendering
             createCanvas(size, size).parent('p5-canvas-container');
             colorMode(HSB, 360, 100, 100, 1.0);
             background(0);
@@ -526,7 +1385,14 @@
 
         async function generateRoots() {
             const statusDiv = document.getElementById('status');
-            statusDiv.innerText = 'Calculating roots...';
+            statusDiv.innerHTML = '<div class="spinner"></div>Calculating roots...';
+            generateBtn.disabled = true;
+            stopBtn.disabled = false;
+            stopBtn.classList.add('active');
+            
+            // Create new abort controller
+            abortController = new AbortController();
+            
             const terms = [];
             getRows().forEach(r => {
                 const k = parseInt(r.k, 10);
@@ -535,7 +1401,7 @@
             });
             
             const params = {};
-            paramsContainer.querySelectorAll('.param-row').forEach(row => {
+            paramsContainer.querySelectorAll('.param-row, .form-group[id^="param-row-"]').forEach(row => {
                 const name = row.querySelector('.param-name').value;
                 if (!name) return;
                 
@@ -566,39 +1432,80 @@
                 mps_out_digits: parseInt(mpsDigitsInput.value, 10)
             };
             
-            const response = await fetch('/api/generate-roots', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            try {
+                const response = await fetch('/api/generate-roots', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: abortController.signal
+                });
 
-            if (!response.ok) { statusDiv.innerText = 'Error from server.'; return; }
-            rootData = await response.json();
-            if (rootData.error) { statusDiv.innerText = `Error: ${rootData.error}`; return; }
+                if (!response.ok) { 
+                    statusDiv.innerHTML = 'Error from server.'; 
+                    generateBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    stopBtn.classList.remove('active');
+                    return; 
+                }
+                
+                rootData = await response.json();
+                if (rootData.error) { 
+                    statusDiv.innerHTML = `Error: ${rootData.error}`; 
+                    generateBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    stopBtn.classList.remove('active');
+                    return; 
+                }
 
-            if (rootData.timing) {
-                const t = rootData.timing;
-                const backendName = payload.solver === 'mpsolve' ? (payload.use_parallel ? `MPSolve (${payload.max_workers} cores)` : 'MPSolve (Sequential)') : (payload.use_parallel ? `NumPy (${payload.max_workers} cores)` : 'NumPy (Sequential)');
-                let timingHtml = `<strong>Backend: ${backendName}</strong> | Total: <strong>${t.total.toFixed(3)}s</strong><br><small style="color: #aaa;">SymPy: ${t.sympy.toFixed(3)}s | Vector: ${t.vector.toFixed(3)}s | Roots: <strong>${t.roots.toFixed(3)}s</strong> | Post: ${t.post.toFixed(3)}s | Grid: ${t.grid.toFixed(3)}s</small>`;
-                statusDiv.innerHTML = timingHtml;
-            } else {
-                statusDiv.innerText = 'Roots computed!';
+                if (rootData.timing) {
+                    const t = rootData.timing;
+                    const backendName = payload.solver === 'mpsolve' ? 
+                        (payload.use_parallel ? `MPSolve (${payload.max_workers} cores)` : 'MPSolve (Sequential)') : 
+                        (payload.use_parallel ? `NumPy (${payload.max_workers} cores)` : 'NumPy (Sequential)');
+                    let timingHtml = `<strong>Backend: ${backendName}</strong> | Total: <strong>${t.total.toFixed(3)}s</strong><br>
+                                     <small style="color: var(--text-tertiary);">SymPy: ${t.sympy.toFixed(3)}s | Vector: ${t.vector.toFixed(3)}s | 
+                                     Roots: <strong>${t.roots.toFixed(3)}s</strong> | Post: ${t.post.toFixed(3)}s | Grid: ${t.grid.toFixed(3)}s</small>`;
+                    statusDiv.innerHTML = timingHtml;
+                } else {
+                    statusDiv.innerHTML = 'Roots computed!';
+                }
+                
+                visualizationControls.style.display = 'block';
+                applyVisualEffects();
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    statusDiv.innerHTML = 'Computation stopped by user.';
+                } else {
+                    statusDiv.innerHTML = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            } finally {
+                generateBtn.disabled = false;
+                stopBtn.disabled = true;
+                stopBtn.classList.remove('active');
+                abortController = null;
             }
-            
-            visualizationControls.style.display = 'block';
-            applyVisualEffects();
         }
+        
+        stopBtn.addEventListener('click', () => {
+            if (abortController) {
+                abortController.abort();
+                stopBtn.disabled = true;
+                stopBtn.classList.remove('active');
+            }
+        });
         
         function applyVisualEffects() {
             if (!rootData) { alert('Please generate roots first!'); return; }
             const statusDiv = document.getElementById('status');
-            statusDiv.innerText = 'Applying visual effects...';
+            statusDiv.innerHTML = '<div class="spinner"></div>Applying visual effects...';
             setTimeout(() => {
                 drawArtwork();
-                statusDiv.innerText = 'Done.';
+                statusDiv.innerHTML = 'Done.';
             }, 50);
         }
 
+        // Drawing functions (same as original but using CSS variables for colors where appropriate)
         function drawArtwork() {
             background(0);
             const { density_grid, grid_size } = rootData;
@@ -651,11 +1558,13 @@
                     let equationText = 'P(x) = ' + equationParts.reverse().join(' + ').replace(/\+ -/g, '- ');
                     let infoText = [equationText, '---'];
                     
-                    const t1DomainType = document.querySelector('.domain-spec[data-var-name="t1"] .domain-type-select').value;
-                    const t2DomainType = document.querySelector('.domain-spec[data-var-name="t2"] .domain-type-select').value;
+                    const t1DomainContainer = document.querySelector('[data-var-name="t1"]');
+                    const t2DomainContainer = document.querySelector('[data-var-name="t2"]');
+                    const t1DomainType = t1DomainContainer ? t1DomainContainer.querySelector('.domain-type-select').value : 'unknown';
+                    const t2DomainType = t2DomainContainer ? t2DomainContainer.querySelector('.domain-type-select').value : 'unknown';
                     infoText.push(`t1 in ${t1DomainType.replace(/_/g, ' ')}, t2 in ${t2DomainType.replace(/_/g, ' ')}`);
 
-                    document.querySelectorAll('.param-row').forEach((row) => {
+                    paramsContainer.querySelectorAll('.form-group[id^="param-row-"]').forEach((row) => {
                         const name = row.querySelector('.param-name').value;
                         const type = row.querySelector('.param-type-select').value;
                         let defText = '';
@@ -664,7 +1573,6 @@
                             const defInput = row.querySelector('input[name="definition"]');
                             defText = defInput ? defInput.value : '[equation]';
                         } else {
-                            // For templates, build a descriptive string like "Chebyshev(n=12, var=t1)"
                             defText = `${type.charAt(0).toUpperCase() + type.slice(1)}(`;
                             const parts = [];
                             row.querySelectorAll('.param-input').forEach(input => {
@@ -807,14 +1715,12 @@
                     r = lerp(100, 255, t); g = lerp(0, 200, t); b = lerp(100, 0, t);
                     if (t > 0.5) { g = lerp(200, 255, (t-0.5)/0.5); }
                     break;
-                // Other palettes omitted for brevity
                 default: return getColorFromPalette(t, 'inferno');
             }
             return color(r, g, b);
         }
 
-        // legacy zero-coefficient toggle removed with sparse editor
-
+        // Event listeners
         setDegreeBtn.addEventListener('click', () => {
             const N = parseInt(degreeInput.value, 10);
             if (isNaN(N) || N < 0) { alert('Enter a valid non-negative integer degree.'); return; }
@@ -824,12 +1730,73 @@
             addEmptyRows(3);
             validateAndSort();
         });
+        
         addParamBtn.addEventListener('click', () => addParamField());
         generateBtn.addEventListener('click', generateRoots);
         applyEffectsBtn.addEventListener('click', applyVisualEffects);
 
         document.getElementById('download-btn').addEventListener('click', () => {
-            saveCanvas('polynomial_art', 'png');
+            saveCanvas('polynomiogram', 'png');
+        });
+        
+        document.getElementById('download-metadata-btn').addEventListener('click', () => {
+            if (!rootData) {
+                alert('Generate roots first!');
+                return;
+            }
+            
+            const metadata = {
+                timestamp: new Date().toISOString(),
+                polynomial: {
+                    degree: parseInt(degreeInput.value, 10),
+                    terms: getRows().filter(r => r.k && r.coeff).map(r => ({
+                        exponent: parseInt(r.k, 10),
+                        coefficient: r.coeff,
+                        note: r.note
+                    }))
+                },
+                parameters: {},
+                domains: {
+                    t1: getDomainSpec('t1'),
+                    t2: getDomainSpec('t2')
+                },
+                computation: {
+                    samples: parseInt(document.getElementById('n_pairs').value),
+                    seed: parseInt(document.getElementById('seed').value),
+                    resolution: parseInt(document.getElementById('grid_resolution').value),
+                    solver: solverSelect.value,
+                    mps_digits: parseInt(mpsDigitsInput.value),
+                    parallel: useParallelCheckbox.checked,
+                    cores: parseInt(maxWorkersSlider.value)
+                },
+                visualization: {
+                    palette: document.getElementById('color_palette').value,
+                    style: document.getElementById('render_style').value,
+                    contrast: parseFloat(document.getElementById('contrast_boost').value),
+                    black_point: parseFloat(document.getElementById('black_point').value)
+                },
+                timing: rootData.timing
+            };
+            
+            // Get parameters
+            paramsContainer.querySelectorAll('.form-group[id^="param-row-"]').forEach(row => {
+                const name = row.querySelector('.param-name').value;
+                if (name) {
+                    const paramSpec = { type: row.querySelector('.param-type-select').value };
+                    row.querySelectorAll('.param-input').forEach(input => {
+                        paramSpec[input.name] = input.value;
+                    });
+                    metadata.parameters[name] = paramSpec;
+                }
+            });
+            
+            const blob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `polynomiogram_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
         });
 
         addSignatureCheckbox.addEventListener('change', () => {
@@ -840,8 +1807,11 @@
             if (rootData) drawArtwork();
         });
 
+        // Initialize domains
         domainControlsContainer.appendChild(createDomainUI('t1'));
         domainControlsContainer.appendChild(createDomainUI('t2'));
+        
+        // Add default parameters
         addParamField('P1', { type: 'freeform', definition: '100*exp(I*t1)**5 - 100*exp(I*t2)**4' });
         addParamField('P2', { type: 'freeform', definition: '100*exp(I*t2)**5 - 100*exp(I*t1)**4' });
         addParamField('C', { type: 'freeform', definition: 't1 + t2' });
@@ -859,8 +1829,8 @@
         validateAndSort();
         
         initializeSystemInfo();
-        // initialize status line for sparse editor
         setStatus();
     </script>
 </body>
 </html>
+

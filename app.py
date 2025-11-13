@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import numpy as np
 import io
 import time
@@ -293,6 +293,11 @@ def generate_root_coordinates(payload):
 def index():
     return render_template('index.html')
 
+@app.route('/asset/<path:filename>')
+def serve_asset(filename):
+    """Serve files from the asset folder."""
+    return send_from_directory('asset', filename)
+
 @app.route('/api/generate-roots', methods=['POST'])
 def generate_api():
     payload = request.json
@@ -306,6 +311,27 @@ def system_info():
         'max_cores': multiprocessing.cpu_count(),
         'platform': multiprocessing.get_start_method()
     })
+
+# Preset management routes
+@app.route('/api/presets', methods=['GET'])
+def get_presets():
+    """Get all saved presets."""
+    # In a production app, this would read from a database
+    # For now, this is handled client-side with localStorage
+    return jsonify({'presets': []})
+
+@app.route('/api/presets', methods=['POST'])
+def save_preset():
+    """Save a new preset."""
+    # In a production app, this would save to a database
+    preset = request.json
+    return jsonify({'success': True, 'message': 'Preset saved'})
+
+@app.route('/api/presets/<preset_id>', methods=['GET'])
+def get_preset(preset_id):
+    """Get a specific preset."""
+    # In a production app, this would query a database
+    return jsonify({'preset': {}})
 
 
 _mps_smoke_done = False
